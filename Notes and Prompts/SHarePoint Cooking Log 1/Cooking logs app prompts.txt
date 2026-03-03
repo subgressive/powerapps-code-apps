@@ -1,0 +1,35 @@
+Create a fully functional React "Health Safety Logs" app shell using modern UI design with glassmorphism, gradients, and smooth animations. Use Tailwind CSS for styling (assume it's already configured in the Vite project), Lucide React icons, Headless UI or Radix for components, Framer Motion for animations, and React Hook Form for form handling. 
+
+App Structure (single App.tsx):
+
+Header: Fixed top bar with logo "Health Safety Logs" and current date and time displayed.
+
+Sidebar (left, 100px wide, collapsible on mobile): Profile avatar/initials, navigation: "Cooking" (active), "Cooling", "Reheat".
+
+Main Content (flex-fill):
+
+Cooking log Gallery: verticaly grid of cards (glassmorphism: backdrop-blur, rgba white 0.1 border, rounded-xl shadow-xl) ,one sharepoint list item per row.
+
+Cooking log From : 
+
+
+Footer Summary: Horizontal bar with "Submit" button (gradient, pulse animation).
+
+Theme: Dark mode: bg-gradient-to-br from-zinc-900 via-slate-950 to-black, accent: brushed metal gradient (from-slate-400 to-zinc-600), glass cards: bg-slate-500/5 backdrop-blur-xl border border-white/10, headings: text-slate-100 font-semibold tracking-tight, body: text-slate-400 font-medium.
+
+Interactions:
+
+The data for the cooking log is from a sharepoint list. this reference is already in the app in the power\schemas folder 
+
+App open to the "Cooking" menu item page. loads any items it finds in the sharepoint list for todays date into the gallery part. If no items found display "No items for today". Underneath the gallery on the same page, present a form which includes the following columns from the list : "Product", "Date", "Start Time", "End Time", "Temp", "Corrective Action" and "Initial"
+
+Submit button shows confetti + toast "Submitted!" and form data is submitted into the sharepoint "COOk LOGS" list.
+
+Responsive: Mobile stacks sidebar under header, cards become vertical list.
+
+Animations: Fade-in on load, slide-up for cards, button press scale/shrink.
+
+Use shadcn/ui components if possible (assume installed: Button, Input, Select, Card, Badge, etc.). Make it pixel-perfect, production-ready beautiful—copy modern Dribbble timesheet designs. Replace all placeholder content with realistic mock data (e.g., hours: 8, 6, etc.). Export as complete App.tsx ready to paste.
+
+Quick Build Notes
+Fully self-contained—no external deps beyond Tailwind/Framer/Lucide. Use TypeScript. Ensure mobile-first responsive with Tailwind breakpoints. Add subtle micro-interactions everywhere for that premium vibe.

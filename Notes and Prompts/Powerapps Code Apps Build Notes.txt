@@ -1,0 +1,63 @@
+
+Initialize app
+
+Old: pac code init --displayName "SharePoint Forms One"
+New: npx power-apps init --displayName "SharePoint Forms One" --environmentId <envId>
+Run locally
+
+Old: pac code run
+New: npx power-apps run
+Push/deploy
+
+Old: pac code push
+New: npx power-apps push
+Add SPO list datasource
+
+Old: pac code add-data-source --apiId shared_sharepointonline --connectionId "<id>" --dataset "<siteUrl>" --table "COOK LOGS"
+New: npx power-apps add-data-source --apiId shared_sharepointonline --connectionId "<id>" --dataset "<siteUrl>" --resourceName "COOK LOGS"
+List connections (important gap)
+
+Old: pac connection list ✅ direct equivalent for connections
+New CLI: no direct equivalent yet; npx power-apps list-connection-references is for solution connection references (needs --orgUrl + --solutionId), not raw connection listing.
+
+=====================
+
+Ensure Microssoft .NET SDK 10.0.103 is installed < completed on mini & laptop >
+Ensure Git.exe downloaded and installed < completed on mini & laptop >
+
+Ensure logged into subgressive and PowerApps environment
+Ensure logged into Github
+
+>npx degit github:microsoft/PowerAppsCodeApps/templates/vite sharepoint-forms1
+>cd my-code-app
+>npm install # installs all required packages
+>npm install @microsoft/power-apps@latest --save # installs latest version PowerApps dependencies
+>npx power-apps init --displayName "SharePoint Forms One"
+>npm run dev
+
+>npx power-apps --help
+
+#connections
+pac connection list
+
+# OfficeUsers Connection
+# pac code add-data-source -a "shared_office365users" -c "shared-office365user-f85312f7-ebb1-4034-8d4e-380794c62f50" #-c is from URL when you open the OfficeUsers connection
+npx power-apps add-data-source -a "shared_office365users" -c "shared-office365user-f85312f7-ebb1-4034-8d4e-380794c62f50
+
+#Sharepoint Connection
+# pac code add-data-source -a "shared_sharepointonline" -c "26f63d7174864d6bad6a2f6ef090dd69"
+npx power-apps add-data-source -a "shared_sharepointonline" -c "26f63d7174864d6bad6a2f6ef090dd69"
+
+#pac code add-data-source --apiId shared_sharepointonline --connectionId "26f63d7174864d6bad6a2f6ef090dd69" --dataset "https://subgressive.sharepoint.com/sites/smokinbutts" --table "COOK LOGS"
+npx power-apps add-data-source --apiId shared_sharepointonline --connectionId "26f63d7174864d6bad6a2f6ef090dd69" --dataset "https://subgressive.sharepoint.com/sites/smokinbutts" --resourceName "COOK LOGS"
+
+# Environment 
+pac org list # this gives url of environment
+pac org select --environment https://org6d28386b.crm6.dynamics.com # subgressive (defo ) environment url
+
+#Package solution
+npm run build
+pac solution list
+
+
+

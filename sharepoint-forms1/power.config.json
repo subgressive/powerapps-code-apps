@@ -1,0 +1,32 @@
+{
+  "appId": "",
+  "appDisplayName": "SharePoint Forms One",
+  "description": null,
+  "environmentId": "Default-90efcce1-7b40-4980-9489-878bfe32fcb6",
+  "buildPath": "./dist",
+  "buildEntryPoint": "index.html",
+  "logoPath": "Default",
+  "localAppUrl": "http://localhost:3000/",
+  "region": "prod",
+  "connectionReferences": {
+    "a986c2bf-ec56-4de2-a606-8b6daf71b4b7": {
+      "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "displayName": "SharePoint",
+      "dataSources": [
+        "sharepointonline",
+        "cooklogs"
+      ],
+      "dataSets": {
+        "https://subgressive.sharepoint.com/sites/smokinbutts": {
+          "dataSources": {
+            "cooklogs": {
+              "tableName": "COOK LOGS"
+            }
+          }
+        }
+      }
+    }
+  },
+  "databaseReferences": {},
+  "version": "1.0"
+}

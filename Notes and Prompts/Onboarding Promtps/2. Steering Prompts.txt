@@ -1,0 +1,20 @@
+Subsequent Steering prompts
+===========================
+Refactor the app so the primary experience is OnboardingCase orchestration (cases, tasks, documents, approvals). Any charts/graphs must be secondary and never replace actionable pages.
+
+Implement template-driven generation: when an OnboardingCase is created, select OnboardingTemplate by Role/Location/EmploymentType and create all OnboardingTasks + DocumentRequests from templates. Show where this is implemented and verify it runs reliably.
+
+Add hard stage gating: prevent stage change unless required tasks and documents for the current stage are complete and required approvals are done. Add clear blocked/overdue indicators and compute AtRisk.
+
+Upgrade Work Queues: views for Due Today, Overdue, Blocked, Unassigned; group by Category and Team; quick actions (reassign, change due date, mark complete with evidence when required); drill into the parent OnboardingCase.
+
+Enhance New Hire Workspace: progress timeline + percent complete, my tasks with completion + evidence upload, document requests with submission/approval statuses, policy acknowledgements, and profile edit. Ensure permissions prevent access to other hires’ data.
+
+Harden RBAC: ensure data access is enforced (not just hidden). New Hire can only read/update their own related records. Confidential documents restricted to HR/Finance. Confirm queries and server-side permissions enforce this.
+
+
+
+
+
+
+

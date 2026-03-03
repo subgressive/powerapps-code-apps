@@ -1,0 +1,12 @@
+
+Make this build solution-friendly:
+- Ensure all created components are consistently named with a clear prefix
+- Produce a complete inventory list of every artifact created (code app, Dataverse tables, relationships, flows, roles)
+- Ensure there are no duplicate/unused tables or pages
+- Optimize so that adding everything to a single Dataverse solution in make.powerapps.com is straightforward
+
+
+
+( after that it is a manual package )
+
+Create/open a solution in Maker Portal and Add existing components (app, tables, flows, roles, etc.) so you have one handle for export/delete. (This is consistent with how Dataverse dependency management works via solutions.)

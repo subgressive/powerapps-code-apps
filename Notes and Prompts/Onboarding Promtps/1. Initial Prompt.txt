@@ -1,0 +1,43 @@
+Build a complete Employee Onboarding solution as a SINGLE Power Apps Vibe CODE APP (generated React web app). Do NOT produce only a manager dashboard.
+
+Goal: end-to-end onboarding from offer accepted to Day-30 completion with case management, task orchestration, approvals, and document collection across HR, IT, Facilities, Finance, Hiring Managers, and New Hires — all within one app.
+
+APP NAVIGATION (pages/routes + role-based visibility):
+- HR Operations: create/manage onboarding cases, set stage, assign owners, manage templates and communications.
+- Work Queues: “My tasks” and “Team tasks” (IT/Facilities/Finance/HR) with filters (due today, overdue, blocked, unassigned) and drill-through to the case.
+- Approvals Center: approve access/equipment/payroll; show pending approvals and decisions.
+- New Hire Workspace: my onboarding progress, my tasks, upload required documents, policy acknowledgements, profile updates.
+- Admin/Template Manager: manage onboarding templates, task templates, document request templates, SLA thresholds.
+
+CORE CONCEPT:
+Each onboarding is a CASE with lifecycle stages, SLAs, dependencies, audit history, and automatic generation of tasks and document requests from templates.
+
+ROLES:
+HR Coordinator, Hiring Manager, IT Service Desk, Facilities, Finance/Payroll, New Hire, Admin. Enforce access per role/team.
+
+DATAVERSE TABLES (create + relate):
+- OnboardingCase (primary): NewHire(Person), Manager, Role, Department, Location, EmploymentType, StartDate, Stage, Status, Day0/7/30 target dates, AtRisk flag.
+- Person: contact + address + emergency contact + accessibility needs.
+- OnboardingTask: Case lookup, Category(HR/IT/Facilities/Finance), AssigneeTeam/User, DueDate, Status, Required, DependencyTask, EvidenceRequired.
+- TaskTemplate
+- OnboardingTemplate: mapping rules (Role/Location/EmploymentType) -> TaskTemplates + required document requests.
+- DocumentRequest: Case lookup, DocType, Required, DueDate, ConfidentialityLevel, SubmissionStatus, ApprovalStatus, Attachments.
+- Approval: Case lookup, Type(Access/Equipment/Payroll), Approver, Status, Comments.
+- EquipmentRequest and AccessRequest: items requested, status, linked Approval.
+- PolicyAcknowledgement
+- CommunicationsLog
+
+BUSINESS LOGIC:
+- On OnboardingCase create: select OnboardingTemplate (role/location/type) and generate OnboardingTasks + DocumentRequests.
+- Stages: Draft -> Initiated -> Provisioning -> PreStart -> Day1 -> Week1 -> Month1 -> Completed.
+- Stage gating: cannot advance unless required tasks + required documents are complete and required approvals are done.
+- Compute blocked tasks (dependency unmet), overdue tasks, and AtRisk cases.
+
+AUTOMATION:
+Create flows/jobs for welcome notification, approval notifications, overdue reminders + escalation, and Day-1 checklist summary. Log all communications.
+
+SECURITY:
+RBAC must be enforced: New Hire sees only their own case/tasks/docs; confidential documents restricted to HR/Finance; team members see tasks for their team.
+
+DELIVER:
+A working Vibe code app with pages/routes, data model, rules, and starter templates for office-based, remote, and contractor onboarding.
