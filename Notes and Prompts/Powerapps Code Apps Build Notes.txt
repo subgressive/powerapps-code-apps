@@ -28,7 +28,7 @@ Ensure Git.exe downloaded and installed < completed on mini & laptop >
 Ensure logged into subgressive and PowerApps environment
 Ensure logged into Github
 
->npx degit github:microsoft/PowerAppsCodeApps/templates/vite sharepoint-forms1
+>npx degit github:microsoft/PowerAppsCodeApps/templates/vite sharepoint-forms1 # DO NOT GO INTO THE DIRECTORY, THE COMMAND CREATES THE DIRECTORY
 >cd my-code-app
 >npm install # installs all required packages
 >npm install @microsoft/power-apps@latest --save # installs latest version PowerApps dependencies

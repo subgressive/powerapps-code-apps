@@ -1,0 +1,45 @@
+Create a complete React + TypeScript weekly timesheet UI in a single App.tsx file for a Power Apps code app.
+
+Return one code block only with full file contents and no explanation.
+
+Power Apps Safety Constraints (strict)
+
+Use only React + TypeScript.
+Prefer semantic HTML elements and Tailwind utility classes only if Tailwind is already active.
+Do not use Framer Motion, Lucide, Headless UI, Radix, shadcn/ui, date libraries, canvas libs, or confetti packages.
+No dynamic imports.
+Keep all logic in App.tsx; no new files.
+Styling Fallback Rule (critical)
+
+If Tailwind classes are not available at runtime, include a small internal style object / inline class fallback so layout still looks acceptable.
+Do not assume Tailwind config exists unless explicitly confirmed.
+Data Source Requirement (strict)
+
+Use ProjectsService from ./generated/services/ProjectsService for project dropdown options.
+Read project rows via ProjectsService.getAll(...).
+Map Title as display value.
+If service fails or returns no usable project names, fallback to realistic local mock projects.
+Do not hardcode projects unless fallback is triggered.
+UX Scope
+
+Fixed header: title, week prev/next, date range, total badge (X/40h).
+Left sidebar: avatar/initials, nav (Dashboard active, Reports, Settings), status chips.
+Main: Mon–Sun strip with today highlight; 7 day cards; each card has project select, hours input, notes, daily total.
+Footer summary: per-project totals, grand total, overtime warning when >40, submit button.
+Data + Logic
+
+Use local state only.
+Week navigation updates displayed entries.
+Hours validation: 0..24, step 0.5.
+Recalculate daily/weekly/per-project totals in real time.
+Disable submit if invalid.
+Submit shows lightweight inline toast “Submitted!” and simple CSS-based confetti.
+Responsiveness + Accessibility
+
+Mobile-first; sidebar stacks under header on small screens.
+Proper labels, keyboard focus states, and accessible controls.
+Output Requirements
+
+One complete App.tsx code block only.
+Explicit TypeScript types/interfaces.
+No TODOs/placeholders/explanatory text.
