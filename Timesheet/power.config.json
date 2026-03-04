@@ -1,0 +1,32 @@
+{
+  "version": "1.0",
+  "appId": null,
+  "appDisplayName": "Timesheet",
+  "region": "prod",
+  "environmentId": "Default-90efcce1-7b40-4980-9489-878bfe32fcb6",
+  "description": " ",
+  "buildPath": "./dist",
+  "buildEntryPoint": "index.html",
+  "localAppUrl": "http://localhost:3000",
+  "logoPath": "Default",
+  "connectionReferences": {
+    "aae2569d-96dd-4d54-9d7d-32bafcd48a32": {
+      "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "displayName": "SharePoint",
+      "dataSources": [
+        "projects",
+        "sharepointonline"
+      ],
+      "dataSets": {
+        "https://subgressive.sharepoint.com": {
+          "dataSources": {
+            "projects": {
+              "tableName": "Projects"
+            }
+          }
+        }
+      }
+    }
+  },
+  "databaseReferences": {}
+}
