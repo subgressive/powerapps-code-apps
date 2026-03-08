@@ -6,8 +6,12 @@
 // Models
 export * as CommonModels from './models/CommonModels';
 export * as COOKLOGSModel from './models/COOKLOGSModel';
+export * as ProductsModel from './models/ProductsModel';
 export * as SharePointModel from './models/SharePointModel';
+export * as StaffModel from './models/StaffModel';
 
 // Services
 export * from './services/COOKLOGSService';
+export * from './services/ProductsService';
 export * from './services/SharePointService';
+export * from './services/StaffService';

@@ -5,6 +5,7 @@ import {
   Clock3,
   Flame,
   Snowflake,
+  Users,
   Thermometer,
   Undo2,
   UserRound,
@@ -12,8 +13,12 @@ import {
 import { useForm } from 'react-hook-form';
 import type { COOKLOGSRead, COOKLOGSWrite } from './generated/models/COOKLOGSModel';
 import { COOKLOGSService } from './generated/services/COOKLOGSService';
+import { ProductsService } from './generated/services/ProductsService';
+import { SharePointService } from './generated/services/SharePointService';
+import type { StaffRead } from './generated/models/StaffModel';
+import { StaffService } from './generated/services/StaffService';
 
-type NavItem = 'Cooking' | 'Cooling' | 'Reheat';
+type NavItem = 'Cooking' | 'Cooling' | 'Reheat' | 'Staff';
 
 interface CookingFormValues {
   product: string;
@@ -29,6 +34,9 @@ const cardMotion = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0 },
 };
+
+const galleryColumnsClass =
+  'grid min-w-[1020px] grid-cols-[minmax(220px,2fr)_minmax(120px,1fr)_minmax(90px,0.8fr)_minmax(90px,0.8fr)_minmax(80px,0.7fr)_minmax(90px,0.8fr)_minmax(250px,2.4fr)] items-center gap-x-3';
 
 function toDateInputValue(date: Date): string {
   const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -109,11 +117,19 @@ function ConfettiBurst({ active }: { active: boolean }) {
 }
 
 function App() {
-  const [activeNav] = useState<NavItem>('Cooking');
+  const sharePointSiteUrl = 'https://subgressive.sharepoint.com/sites/smokinbutts';
+
+  const [activeNav, setActiveNav] = useState<NavItem>('Cooking');
   const [now, setNow] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [logs, setLogs] = useState<COOKLOGSRead[]>([]);
+  const [products, setProducts] = useState<string[]>([]);
+  const [isProductsLoading, setIsProductsLoading] = useState(true);
+  const [staffList, setStaffList] = useState<StaffRead[]>([]);
+  const [isStaffLoading, setIsStaffLoading] = useState(true);
+  const [selectedStaffId, setSelectedStaffId] = useState<number | null>(null);
+  const [selectedStaffInitial, setSelectedStaffInitial] = useState('');
   const [loadError, setLoadError] = useState<string | null>(null);
   const [toastVisible, setToastVisible] = useState(false);
   const [confettiActive, setConfettiActive] = useState(false);
@@ -121,17 +137,19 @@ function App() {
   const {
     register,
     handleSubmit,
+    getValues,
+    setValue,
     reset,
     formState: { errors },
   } = useForm<CookingFormValues>({
     defaultValues: {
-      product: 'Smoked Brisket',
+      product: '',
       date: toDateInputValue(new Date()),
       startTime: '08:00',
       endTime: '14:00',
       temp: '165',
       correctiveAction: 'None required',
-      initial: 'MS',
+      initial: '',
     },
   });
 
@@ -166,8 +184,117 @@ function App() {
     }
   }
 
+  async function loadProducts() {
+    try {
+      setIsProductsLoading(true);
+
+      const result = await ProductsService.getAll({
+        top: 500,
+        orderBy: ['Title asc'],
+      });
+
+      if (!result.success) {
+        throw result.error ?? new Error('Unable to load products.');
+      }
+
+      const productNames = result.data
+        .map((item) => item.Title?.trim() ?? '')
+        .filter((title, index, allTitles) => title.length > 0 && allTitles.indexOf(title) === index);
+
+      setProducts(productNames);
+
+      const currentProduct = getValues('product');
+      if ((!currentProduct || !productNames.includes(currentProduct)) && productNames.length > 0) {
+        setValue('product', productNames[0], { shouldValidate: true });
+      }
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Unable to load products.');
+    } finally {
+      setIsProductsLoading(false);
+    }
+  }
+
+  async function loadStaff() {
+    try {
+      setIsStaffLoading(true);
+
+      let loadedStaff: StaffRead[] = [];
+
+      const staffResult = await StaffService.getAll({
+        top: 500,
+        orderBy: ['Title asc'],
+      });
+
+      if (staffResult.success) {
+        loadedStaff = staffResult.data;
+      } else {
+        const errorMessage = staffResult.error?.message ?? '';
+        const isMissingConnectionRef = errorMessage.toLowerCase().includes('connection reference not found');
+
+        if (!isMissingConnectionRef) {
+          throw staffResult.error ?? new Error('Unable to load staff.');
+        }
+
+        const fallbackResult = await SharePointService.ODataStyleGetItems(
+          sharePointSiteUrl,
+          'Staff',
+          undefined,
+          'Title asc',
+          500,
+        );
+
+        if (!fallbackResult.success) {
+          throw fallbackResult.error ?? new Error('Unable to load staff.');
+        }
+
+        loadedStaff = (fallbackResult.data.value ?? [])
+          .map((item) => {
+            const rawItem = item as Record<string, unknown>;
+            const dynamic = ((rawItem.dynamicProperties as Record<string, unknown> | undefined) ?? {});
+            const merged = { ...dynamic, ...rawItem };
+
+            const idValue = merged.ID;
+            const parsedId =
+              typeof idValue === 'number'
+                ? idValue
+                : typeof idValue === 'string' && Number.isFinite(Number(idValue))
+                  ? Number(idValue)
+                  : undefined;
+
+            return {
+              ID: parsedId,
+              Title: typeof merged.Title === 'string' ? merged.Title : undefined,
+              Initial: typeof merged.Initial === 'string' ? merged.Initial : undefined,
+            } satisfies StaffRead;
+          })
+          .filter((item) => item.Title?.trim());
+      }
+
+      const cleanedStaff = loadedStaff.filter((item) => item.Title?.trim());
+      setStaffList(cleanedStaff);
+
+      if (cleanedStaff.length > 0) {
+        const firstStaff = cleanedStaff[0];
+        const initial = firstStaff.Initial?.trim() || '';
+        setSelectedStaffId(firstStaff.ID ?? null);
+        setSelectedStaffInitial(initial);
+        setValue('initial', initial, { shouldValidate: true });
+      } else {
+        setSelectedStaffId(null);
+        setSelectedStaffInitial('');
+        setValue('initial', '', { shouldValidate: true });
+      }
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Unable to load staff.');
+    } finally {
+      setIsStaffLoading(false);
+    }
+  }
+
   useEffect(() => {
     void loadTodayCookingLogs();
+    void loadProducts();
+    void loadStaff();
   }, []);
 
   async function onSubmit(values: CookingFormValues) {
@@ -181,7 +308,7 @@ function App() {
         field_3: values.endTime,
         field_4: values.temp,
         field_5: values.correctiveAction,
-        field_6: values.initial,
+        field_6: selectedStaffInitial || values.initial,
       };
 
       const result = await COOKLOGSService.create(payload);
@@ -197,13 +324,13 @@ function App() {
       window.setTimeout(() => setConfettiActive(false), 1300);
 
       reset({
-        product: 'Smoked Brisket',
+        product: values.product,
         date: toDateInputValue(new Date()),
         startTime: '08:00',
         endTime: '14:00',
         temp: '165',
         correctiveAction: 'None required',
-        initial: 'MS',
+        initial: selectedStaffInitial || values.initial,
       });
 
       await loadTodayCookingLogs();
@@ -247,22 +374,24 @@ function App() {
         <aside className="w-full rounded-2xl border border-slate-200 bg-slate-200/70 p-3 shadow-sm backdrop-blur-xl md:sticky md:top-20 md:h-[calc(100vh-7rem)] md:w-[100px] md:flex-shrink-0">
           <div className="mb-4 flex items-center gap-3 md:flex-col md:gap-2">
             <div className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-300 bg-slate-300 text-sm font-semibold text-slate-800">
-              MS
+              {selectedStaffInitial || '--'}
             </div>
             <div className="text-xs font-medium text-slate-700 md:text-center">Pit Crew</div>
           </div>
 
-          <nav className="grid grid-cols-3 gap-2 md:grid-cols-1">
+          <nav className="grid grid-cols-4 gap-2 md:grid-cols-1">
             {([
               { label: 'Cooking', icon: Flame },
               { label: 'Cooling', icon: Snowflake },
               { label: 'Reheat', icon: Undo2 },
+              { label: 'Staff', icon: Users },
             ] as const).map(({ label, icon: Icon }) => {
               const isActive = label === activeNav;
               return (
                 <button
                   type="button"
                   key={label}
+                  onClick={() => setActiveNav(label)}
                   className={[
                     'flex items-center justify-center gap-2 rounded-xl border px-2 py-2 text-xs font-semibold transition md:flex-col md:py-3',
                     isActive
@@ -279,6 +408,54 @@ function App() {
         </aside>
 
         <section className="flex min-w-0 flex-1 flex-col gap-4">
+          {activeNav === 'Staff' ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-200/70 p-4 shadow-sm backdrop-blur-xl sm:p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-base font-semibold tracking-tight text-slate-900 sm:text-lg">Staff</h2>
+                <span className="rounded-full border border-slate-300 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                  {staffList.length} Staff
+                </span>
+              </div>
+
+              {isStaffLoading ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-100 p-4 text-sm">Loading staff…</div>
+              ) : staffList.length === 0 ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-100 p-4 text-sm">No staff found</div>
+              ) : (
+                <div className="grid gap-2">
+                  {staffList.map((staff, index) => {
+                    const staffId = staff.ID ?? index;
+                    const staffName = staff.Title?.trim() || 'Unnamed Staff';
+                    const staffInitial = staff.Initial?.trim() || '—';
+                    const isSelected = selectedStaffId === staff.ID;
+
+                    return (
+                      <label
+                        key={staffId}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-800"
+                      >
+                        <div className="flex min-w-0 flex-col">
+                          <span className="truncate font-semibold text-slate-900">{staffName}</span>
+                          <span className="text-xs text-slate-700">Initial: {staffInitial}</span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(isSelected)}
+                          onChange={() => {
+                            setSelectedStaffId(staff.ID ?? null);
+                            setSelectedStaffInitial(staff.Initial?.trim() || '');
+                            setValue('initial', staff.Initial?.trim() || '', { shouldValidate: true });
+                          }}
+                          className="h-4 w-4 rounded border-slate-300 accent-slate-700"
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
           <div className="rounded-2xl border border-slate-200 bg-slate-200/70 p-4 shadow-sm backdrop-blur-xl sm:p-5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-base font-semibold tracking-tight text-slate-900 sm:text-lg">Cooking Log Gallery</h2>
@@ -292,33 +469,39 @@ function App() {
             ) : logs.length === 0 ? (
               <div className="rounded-xl border border-slate-200 bg-slate-100 p-4 text-sm">No items for today</div>
             ) : (
-              <div className="grid gap-3">
-                {logs.map((log, index) => (
-                  <motion.article
-                    key={log.ID ?? `${log.Title}-${index}`}
-                    variants={cardMotion}
-                    initial="hidden"
-                    animate="visible"
-                    transition={{ duration: 0.35, delay: index * 0.06 }}
-                    className="rounded-xl border border-slate-200 bg-slate-100 p-4 shadow-sm backdrop-blur-xl"
-                  >
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <h3 className="text-sm font-semibold text-slate-900 sm:text-base">{log.Title || 'Untitled Product'}</h3>
-                      <span className="rounded-full bg-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700">
-                        {log.field_4 ? `${log.field_4}°` : '—'}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                      <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">Date: {log.field_1 || '—'}</div>
-                      <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">Start: {log.field_2 || '—'}</div>
-                      <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">End: {log.field_3 || '—'}</div>
-                      <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">Initial: {log.field_6 || '—'}</div>
-                    </div>
-                    {log.field_5 && (
-                      <p className="mt-2 text-xs text-slate-700">Corrective Action: {log.field_5}</p>
-                    )}
-                  </motion.article>
-                ))}
+              <div className="overflow-x-auto">
+                <div className="grid gap-1">
+                  <div className={`${galleryColumnsClass} px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600`}>
+                    <span>Product</span>
+                    <span>Date</span>
+                    <span>Start</span>
+                    <span>End</span>
+                    <span>Temp</span>
+                    <span>Initial</span>
+                    <span>Corrective Notes</span>
+                  </div>
+
+                  {logs.map((log, index) => (
+                    <motion.article
+                      key={log.ID ?? `${log.Title}-${index}`}
+                      variants={cardMotion}
+                      initial="hidden"
+                      animate="visible"
+                      transition={{ duration: 0.35, delay: index * 0.06 }}
+                      className="px-1 py-1"
+                    >
+                      <div className={`${galleryColumnsClass} text-xs text-slate-700`}>
+                        <span className="truncate font-bold text-slate-900">{log.Title || 'Untitled Product'}</span>
+                        <span className="truncate">{log.field_1 || '—'}</span>
+                        <span className="truncate">{log.field_2 || '—'}</span>
+                        <span className="truncate">{log.field_3 || '—'}</span>
+                        <span className="truncate">{log.field_4 ? `${log.field_4}°` : '—'}</span>
+                        <span className="truncate">{log.field_6 || '—'}</span>
+                        <span className="truncate">{log.field_5 || '—'}</span>
+                      </div>
+                    </motion.article>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -335,11 +518,20 @@ function App() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <label className="text-xs font-medium text-slate-700">
                 Product
-                <input
+                <select
                   {...register('product', { required: 'Product is required' })}
+                  disabled={isProductsLoading || products.length === 0}
                   className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
-                  placeholder="Smoked Brisket"
-                />
+                >
+                  <option value="">
+                    {isProductsLoading ? 'Loading products...' : products.length === 0 ? 'No products found' : 'Select product'}
+                  </option>
+                  {products.map((productName) => (
+                    <option key={productName} value={productName}>
+                      {productName}
+                    </option>
+                  ))}
+                </select>
                 {errors.product && <span className="mt-1 block text-[11px] text-red-300">{errors.product.message}</span>}
               </label>
 
@@ -388,8 +580,9 @@ function App() {
                   <UserRound className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
                   <input
                     {...register('initial', { required: 'Initial is required', maxLength: 4 })}
+                    readOnly
                     className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-8 pr-3 text-sm uppercase text-slate-900 outline-none transition focus:border-slate-500"
-                    placeholder="MS"
+                    placeholder="Select staff"
                   />
                 </div>
               </label>
@@ -405,6 +598,8 @@ function App() {
               </label>
             </div>
           </motion.form>
+            </>
+          )}
         </section>
       </motion.main>
 

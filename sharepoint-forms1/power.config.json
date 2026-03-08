@@ -14,13 +14,21 @@
       "displayName": "SharePoint",
       "dataSources": [
         "sharepointonline",
-        "cooklogs"
+        "cooklogs",
+        "products",
+        "staff"
       ],
       "dataSets": {
         "https://subgressive.sharepoint.com/sites/smokinbutts": {
           "dataSources": {
             "cooklogs": {
               "tableName": "COOK LOGS"
+            },
+            "products": {
+              "tableName": "Products"
+            },
+            "staff": {
+              "tableName": "Staff"
             }
           }
         }
