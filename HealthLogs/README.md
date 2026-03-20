@@ -73,3 +73,23 @@ export default defineConfig([
   },
 ])
 ```
+
+## Backup To GitHub
+
+Use this command from the HealthLogs folder to back up your latest app changes:
+
+```bash
+npm run backup
+```
+
+What it does:
+
+- Stages only files under `HealthLogs`
+- Creates a commit with a timestamp message
+- Pushes to `origin/main`
+
+Optional custom commit message:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File ./scripts/backup-healthlogs.ps1 -Message "Backup before schema update"
+```

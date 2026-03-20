@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "backup": "powershell -ExecutionPolicy Bypass -File ./scripts/backup-healthlogs.ps1"
   },
   "dependencies": {
     "@microsoft/power-apps": "^1.0.4",
