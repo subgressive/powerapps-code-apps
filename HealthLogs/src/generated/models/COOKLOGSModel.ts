@@ -26,12 +26,12 @@ export interface EditorValue {
 export interface COOKLOGSBase {
   ID?: number;
   Title?: string;
-  field_1?: string;
-  field_2?: string;
-  field_3?: string;
-  field_4?: string;
-  field_5?: string;
-  field_6?: string;
+  Date?: string;
+  StartTime?: string;
+  EndTime?: string;
+  Temp?: string;
+  Correctiveaction?: string;
+  Initial?: string;
   OData__ColorTag?: string;
   ComplianceAssetId?: string;
   Modified?: string;

@@ -79,6 +79,22 @@ function formatReadableDateTime(date: Date): string {
   });
 }
 
+function getTextValue(record: COOKLOGSRead, key: keyof COOKLOGSRead, fallbackKey?: string): string {
+  const primary = record[key];
+  if (typeof primary === 'string' && primary.trim().length > 0) {
+    return primary;
+  }
+
+  if (fallbackKey) {
+    const fallback = (record as Record<string, unknown>)[fallbackKey];
+    if (typeof fallback === 'string') {
+      return fallback;
+    }
+  }
+
+  return '';
+}
+
 function ConfettiBurst({ active }: { active: boolean }) {
   const pieces = useMemo(
     () =>
@@ -172,7 +188,7 @@ function App() {
         throw result.error ?? new Error('Unable to fetch cooking logs.');
       }
 
-      const todaysLogs = result.data.filter((record) => isTodayValue(record.field_1));
+      const todaysLogs = result.data.filter((record) => isTodayValue(record.Date));
       setLogs(todaysLogs);
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Unable to load cooking logs.');
@@ -259,17 +275,21 @@ function App() {
     try {
       setIsSubmitting(true);
 
-      const payload: Omit<COOKLOGSWrite, 'ID'> = {
+      const payload: Omit<COOKLOGSWrite, 'ID'> & Record<string, unknown> = {
         Title: values.product,
-        field_1: values.date,
-        field_2: values.startTime,
-        field_3: values.endTime,
-        field_4: values.temp,
-        field_5: values.correctiveAction,
-        field_6: selectedStaffInitial || values.initial,
+        Date: values.date,
+        StartTime: values.startTime,
+        EndTime: values.endTime,
+        Temp: values.temp,
+        Correctiveaction: values.correctiveAction,
+        Initial: selectedStaffInitial || values.initial,
       };
 
-      const result = await COOKLOGSService.create(payload);
+      // Some SharePoint lists keep space-encoded internal names after manual column creation.
+      payload.Start_x0020_Time = values.startTime;
+      payload.End_x0020_Time = values.endTime;
+
+      const result = await COOKLOGSService.create(payload as Omit<COOKLOGSWrite, 'ID'>);
 
       if (!result.success) {
         throw result.error ?? new Error('Unable to submit cooking log.');
@@ -450,12 +470,12 @@ function App() {
                     >
                       <div className={`${galleryColumnsClass} text-xs text-slate-700`}>
                         <span className="truncate font-bold text-slate-900">{log.Title || 'Untitled Product'}</span>
-                        <span className="truncate">{log.field_1 || '—'}</span>
-                        <span className="truncate">{log.field_2 || '—'}</span>
-                        <span className="truncate">{log.field_3 || '—'}</span>
-                        <span className="truncate">{log.field_4 ? `${log.field_4}°` : '—'}</span>
-                        <span className="truncate">{log.field_6 || '—'}</span>
-                        <span className="truncate">{log.field_5 || '—'}</span>
+                        <span className="truncate">{log.Date || '—'}</span>
+                        <span className="truncate">{getTextValue(log, 'StartTime', 'Start_x0020_Time') || '—'}</span>
+                        <span className="truncate">{getTextValue(log, 'EndTime', 'End_x0020_Time') || '—'}</span>
+                        <span className="truncate">{log.Temp ? `${log.Temp}°` : '—'}</span>
+                        <span className="truncate">{log.Initial || '—'}</span>
+                        <span className="truncate">{log.Correctiveaction || '—'}</span>
                       </div>
                     </motion.article>
                   ))}

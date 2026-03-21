@@ -6,7 +6,6 @@
     "sortRestrictions": {
       "sortable": true,
       "unsortableProperties": [
-        "field_5",
         "{Identifier}",
         "{IsFolder}",
         "{Thumbnail}",
@@ -28,7 +27,6 @@
     "filterRestrictions": {
       "filterable": true,
       "nonFilterableProperties": [
-        "field_5",
         "{Identifier}",
         "{IsFolder}",
         "{Thumbnail}",
@@ -99,7 +97,7 @@
           },
           "maxLength": 255
         },
-        "field_1": {
+        "Date": {
           "title": "Date",
           "type": "string",
           "x-ms-permission": "read-write",
@@ -112,7 +110,7 @@
           },
           "maxLength": 255
         },
-        "field_2": {
+        "StartTime": {
           "title": "Start Time",
           "type": "string",
           "x-ms-permission": "read-write",
@@ -125,7 +123,7 @@
           },
           "maxLength": 255
         },
-        "field_3": {
+        "EndTime": {
           "title": "End Time",
           "type": "string",
           "x-ms-permission": "read-write",
@@ -138,7 +136,7 @@
           },
           "maxLength": 255
         },
-        "field_4": {
+        "Temp": {
           "title": "Temp",
           "type": "string",
           "x-ms-permission": "read-write",
@@ -151,13 +149,20 @@
           },
           "maxLength": 255
         },
-        "field_5": {
-          "title": "Corrective Action",
+        "Correctiveaction": {
+          "title": "Corrective action",
           "type": "string",
           "x-ms-permission": "read-write",
-          "x-ms-sort": "none"
+          "x-ms-sort": "asc,desc",
+          "x-ms-capabilities": {
+            "filterFunctions": [
+              "eq",
+              "startswith"
+            ]
+          },
+          "maxLength": 255
         },
-        "field_6": {
+        "Initial": {
           "title": "Initial",
           "type": "string",
           "x-ms-permission": "read-write",
@@ -693,31 +698,31 @@
       "x-ms-displayFormat": {
         "propertiesDisplayOrder": [
           "Title",
-          "field_1",
-          "field_2",
-          "field_3",
-          "field_4",
-          "field_5",
-          "field_6",
+          "Date",
+          "StartTime",
+          "EndTime",
+          "Temp",
+          "Correctiveaction",
+          "Initial",
           "{Attachments}"
         ],
         "propertiesCompactDisplayOrder": [
           "Title",
-          "field_1",
-          "field_2",
-          "field_3",
-          "field_4",
-          "field_5",
-          "field_6"
+          "Date",
+          "StartTime",
+          "EndTime",
+          "Temp",
+          "Correctiveaction",
+          "Initial"
         ],
         "propertiesTabularDisplayOrder": [
           "Title",
-          "field_1",
-          "field_2",
-          "field_3",
-          "field_4",
-          "field_5",
-          "field_6"
+          "Date",
+          "StartTime",
+          "EndTime",
+          "Temp",
+          "Correctiveaction",
+          "Initial"
         ]
       }
     }
@@ -725,7 +730,7 @@
   "referencedEntities": {
     "Author": {
       "lookupEndpoint": {
-        "path": "/tables/32012c88-949b-420a-b2c1-ab6b8ce8dd8e/entities/Author",
+        "path": "/tables/3b7824a8-1e13-410e-a85c-77ea2c59af66/entities/Author",
         "capabilities": {
           "searchable": true,
           "requiresSearch": false
@@ -734,7 +739,7 @@
     },
     "Editor": {
       "lookupEndpoint": {
-        "path": "/tables/32012c88-949b-420a-b2c1-ab6b8ce8dd8e/entities/Editor",
+        "path": "/tables/3b7824a8-1e13-410e-a85c-77ea2c59af66/entities/Editor",
         "capabilities": {
           "searchable": true,
           "requiresSearch": false
@@ -743,7 +748,7 @@
     },
     "4651e8f2-38c9-4ad0-8def-41f743f76f30": {
       "lookupEndpoint": {
-        "path": "/tables/32012c88-949b-420a-b2c1-ab6b8ce8dd8e/entities/%257bContentType%257d",
+        "path": "/tables/3b7824a8-1e13-410e-a85c-77ea2c59af66/entities/%257bContentType%257d",
         "capabilities": {
           "searchable": true,
           "requiresSearch": false

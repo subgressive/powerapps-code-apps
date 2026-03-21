@@ -12,7 +12,7 @@ export const dataSourcesInfo = {
     "dataSourceType": "Connector",
     "apis": {
       "GetAuthor": {
-        "path": "/{connectionId}/datasets/{dataset}/tables/32012c88949b420ab2c1ab6b8ce8dd8e/entities/Author",
+        "path": "/{connectionId}/datasets/{dataset}/tables/3b7824a81e13410ea85c77ea2c59af66/entities/Author",
         "method": "GET",
         "parameters": [
           {
@@ -47,7 +47,7 @@ export const dataSourcesInfo = {
         }
       },
       "GetEditor": {
-        "path": "/{connectionId}/datasets/{dataset}/tables/32012c88949b420ab2c1ab6b8ce8dd8e/entities/Editor",
+        "path": "/{connectionId}/datasets/{dataset}/tables/3b7824a81e13410ea85c77ea2c59af66/entities/Editor",
         "method": "GET",
         "parameters": [
           {
@@ -82,7 +82,7 @@ export const dataSourcesInfo = {
         }
       },
       "Get4651e8f238c94ad08def41f743f76f30": {
-        "path": "/{connectionId}/datasets/{dataset}/tables/32012c88949b420ab2c1ab6b8ce8dd8e/entities/4651e8f238c94ad08def41f743f76f30",
+        "path": "/{connectionId}/datasets/{dataset}/tables/3b7824a81e13410ea85c77ea2c59af66/entities/4651e8f238c94ad08def41f743f76f30",
         "method": "GET",
         "parameters": [
           {
@@ -5384,7 +5384,6 @@ export const dataSourcesInfo = {
       "OnTableUpdatedHook": {
         "path": "/ontableupdatedhook",
         "method": "POST",
-        "parameters": [],
         "responseInfo": {
           "200": {
             "type": "string"
