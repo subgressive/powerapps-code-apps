@@ -79,22 +79,6 @@ function formatReadableDateTime(date: Date): string {
   });
 }
 
-function getTextValue(record: COOKLOGSRead, key: keyof COOKLOGSRead, fallbackKey?: string): string {
-  const primary = record[key];
-  if (typeof primary === 'string' && primary.trim().length > 0) {
-    return primary;
-  }
-
-  if (fallbackKey) {
-    const fallback = (record as Record<string, unknown>)[fallbackKey];
-    if (typeof fallback === 'string') {
-      return fallback;
-    }
-  }
-
-  return '';
-}
-
 function ConfettiBurst({ active }: { active: boolean }) {
   const pieces = useMemo(
     () =>
@@ -150,6 +134,7 @@ function App() {
   const {
     register,
     handleSubmit,
+    clearErrors,
     getValues,
     setValue,
     reset,
@@ -275,7 +260,7 @@ function App() {
     try {
       setIsSubmitting(true);
 
-      const payload: Omit<COOKLOGSWrite, 'ID'> & Record<string, unknown> = {
+      const payload: Omit<COOKLOGSWrite, 'ID'> = {
         Title: values.product,
         Date: values.date,
         StartTime: values.startTime,
@@ -285,11 +270,7 @@ function App() {
         Initial: selectedStaffInitial || values.initial,
       };
 
-      // Some SharePoint lists keep space-encoded internal names after manual column creation.
-      payload.Start_x0020_Time = values.startTime;
-      payload.End_x0020_Time = values.endTime;
-
-      const result = await COOKLOGSService.create(payload as Omit<COOKLOGSWrite, 'ID'>);
+      const result = await COOKLOGSService.create(payload);
 
       if (!result.success) {
         throw result.error ?? new Error('Unable to submit cooking log.');
@@ -471,8 +452,8 @@ function App() {
                       <div className={`${galleryColumnsClass} text-xs text-slate-700`}>
                         <span className="truncate font-bold text-slate-900">{log.Title || 'Untitled Product'}</span>
                         <span className="truncate">{log.Date || '—'}</span>
-                        <span className="truncate">{getTextValue(log, 'StartTime', 'Start_x0020_Time') || '—'}</span>
-                        <span className="truncate">{getTextValue(log, 'EndTime', 'End_x0020_Time') || '—'}</span>
+                        <span className="truncate">{log.StartTime || '—'}</span>
+                        <span className="truncate">{log.EndTime || '—'}</span>
                         <span className="truncate">{log.Temp ? `${log.Temp}°` : '—'}</span>
                         <span className="truncate">{log.Initial || '—'}</span>
                         <span className="truncate">{log.Correctiveaction || '—'}</span>
@@ -497,7 +478,11 @@ function App() {
               <label className="text-xs font-medium text-slate-700">
                 Product
                 <select
-                  {...register('product', { required: 'Product is required' })}
+                  {...register('product', {
+                    required: 'Product is required',
+                    validate: (value) => value.trim().length > 0 || 'Product is required',
+                    onChange: () => clearErrors('product'),
+                  })}
                   disabled={isProductsLoading || products.length === 0}
                   className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
                 >
