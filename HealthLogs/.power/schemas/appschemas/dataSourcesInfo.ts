@@ -118,6 +118,119 @@ export const dataSourcesInfo = {
       }
     }
   },
+  "coolinglogs": {
+    "tableId": "COOLING LOGS",
+    "version": "",
+    "primaryKey": "ID",
+    "dataSourceType": "Connector",
+    "apis": {
+      "GetAuthor": {
+        "path": "/{connectionId}/datasets/{dataset}/tables/66c7f434892844f9ab61b1f878a92927/entities/Author",
+        "method": "GET",
+        "parameters": [
+          {
+            "name": "connectionId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "dataset",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "table",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "responseInfo": {
+          "200": {
+            "type": "array"
+          }
+        }
+      },
+      "GetEditor": {
+        "path": "/{connectionId}/datasets/{dataset}/tables/66c7f434892844f9ab61b1f878a92927/entities/Editor",
+        "method": "GET",
+        "parameters": [
+          {
+            "name": "connectionId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "dataset",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "table",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "responseInfo": {
+          "200": {
+            "type": "array"
+          }
+        }
+      },
+      "Get4651e8f238c94ad08def41f743f76f30": {
+        "path": "/{connectionId}/datasets/{dataset}/tables/66c7f434892844f9ab61b1f878a92927/entities/4651e8f238c94ad08def41f743f76f30",
+        "method": "GET",
+        "parameters": [
+          {
+            "name": "connectionId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "dataset",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "table",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "responseInfo": {
+          "200": {
+            "type": "array"
+          }
+        }
+      }
+    }
+  },
   "products": {
     "tableId": "Products",
     "version": "",
@@ -196,6 +309,119 @@ export const dataSourcesInfo = {
       },
       "Get4651e8f238c94ad08def41f743f76f30": {
         "path": "/{connectionId}/datasets/{dataset}/tables/6ede866dba584c6d9041937f6cb138f1/entities/4651e8f238c94ad08def41f743f76f30",
+        "method": "GET",
+        "parameters": [
+          {
+            "name": "connectionId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "dataset",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "table",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "responseInfo": {
+          "200": {
+            "type": "array"
+          }
+        }
+      }
+    }
+  },
+  "reheatlogs": {
+    "tableId": "REHEAT LOGS",
+    "version": "",
+    "primaryKey": "ID",
+    "dataSourceType": "Connector",
+    "apis": {
+      "GetAuthor": {
+        "path": "/{connectionId}/datasets/{dataset}/tables/8e9ba97c589b4d4582db484d6eae75e8/entities/Author",
+        "method": "GET",
+        "parameters": [
+          {
+            "name": "connectionId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "dataset",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "table",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "responseInfo": {
+          "200": {
+            "type": "array"
+          }
+        }
+      },
+      "GetEditor": {
+        "path": "/{connectionId}/datasets/{dataset}/tables/8e9ba97c589b4d4582db484d6eae75e8/entities/Editor",
+        "method": "GET",
+        "parameters": [
+          {
+            "name": "connectionId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "dataset",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "table",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "responseInfo": {
+          "200": {
+            "type": "array"
+          }
+        }
+      },
+      "Get4651e8f238c94ad08def41f743f76f30": {
+        "path": "/{connectionId}/datasets/{dataset}/tables/8e9ba97c589b4d4582db484d6eae75e8/entities/4651e8f238c94ad08def41f743f76f30",
         "method": "GET",
         "parameters": [
           {

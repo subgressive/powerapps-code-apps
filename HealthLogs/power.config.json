@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "appId": null,
+  "appId": "cb7f478f-7e72-4369-ba9a-d4dfe1eac993",
   "appDisplayName": "HealthLogs",
   "region": "prod",
   "environmentId": "Default-5098ed05-35a5-4151-918f-0e19a72158db",
@@ -16,7 +16,9 @@
       "dataSources": [
         "cooklogs",
         "products",
-        "staff"
+        "staff",
+        "coolinglogs",
+        "reheatlogs"
       ],
       "dataSets": {
         "https://smokinbuttsandracks.sharepoint.com/sites/FoodSafety": {
@@ -29,6 +31,12 @@
             },
             "staff": {
               "tableName": "Staff"
+            },
+            "coolinglogs": {
+              "tableName": "COOLING LOGS"
+            },
+            "reheatlogs": {
+              "tableName": "REHEAT LOGS"
             }
           }
         }

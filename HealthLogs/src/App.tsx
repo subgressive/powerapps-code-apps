@@ -17,6 +17,8 @@ import type { COOKLOGSRead, COOKLOGSWrite } from './generated/models/COOKLOGSMod
 import { COOKLOGSService } from './generated/services/COOKLOGSService';
 import type { COOLINGLOGSRead, COOLINGLOGSWrite } from './generated/models/COOLINGLOGSModel';
 import { COOLINGLOGSService } from './generated/services/COOLINGLOGSService';
+import type { REHEATLOGSRead, REHEATLOGSWrite } from './generated/models/REHEATLOGSModel';
+import { REHEATLOGSService } from './generated/services/REHEATLOGSService';
 import { ProductsService } from './generated/services/ProductsService';
 import type { StaffRead } from './generated/models/StaffModel';
 import { StaffService } from './generated/services/StaffService';
@@ -46,6 +48,16 @@ interface CoolingRowDraft {
   twoHourTemp: string;
   fourHourTime: string;
   fourHourTemp: string;
+}
+
+interface ReheatFormValues {
+  product: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  temp: string;
+  correctiveAction: string;
+  initial: string;
 }
 
 const cardMotion = {
@@ -221,9 +233,11 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCoolingSubmitting, setIsCoolingSubmitting] = useState(false);
+  const [isReheatSubmitting, setIsReheatSubmitting] = useState(false);
   const [savingRowId, setSavingRowId] = useState<number | null>(null);
   const [logs, setLogs] = useState<COOKLOGSRead[]>([]);
   const [coolingLogs, setCoolingLogs] = useState<COOLINGLOGSRead[]>([]);
+  const [reheatLogs, setReheatLogs] = useState<REHEATLOGSRead[]>([]);
   const [coolingRowDrafts, setCoolingRowDrafts] = useState<Record<number, CoolingRowDraft>>({});
   const [products, setProducts] = useState<string[]>([]);
   const [isProductsLoading, setIsProductsLoading] = useState(true);
@@ -269,6 +283,26 @@ function App() {
       date: toDateInputValue(new Date()),
       startTime: getCurrentTimeAmPm(),
       startTemp: '135',
+      initial: '',
+    },
+  });
+
+  const {
+    register: registerReheat,
+    handleSubmit: handleSubmitReheat,
+    clearErrors: clearReheatErrors,
+    getValues: getReheatValues,
+    setValue: setReheatValue,
+    reset: resetReheat,
+    formState: { errors: reheatErrors },
+  } = useForm<ReheatFormValues>({
+    defaultValues: {
+      product: '',
+      date: toDateInputValue(new Date()),
+      startTime: '08:00',
+      endTime: '14:00',
+      temp: '165',
+      correctiveAction: 'None required',
       initial: '',
     },
   });
@@ -340,6 +374,29 @@ function App() {
     }
   }
 
+  async function loadTodayReheatLogs() {
+    try {
+      setIsLoading(true);
+      setLoadError(null);
+
+      const result = await REHEATLOGSService.getAll({
+        top: 100,
+        orderBy: ['Created desc'],
+      });
+
+      if (!result.success) {
+        throw result.error ?? new Error('Unable to fetch reheat logs.');
+      }
+
+      const todaysLogs = result.data.filter((record) => isTodayValue(record.Date));
+      setReheatLogs(todaysLogs);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Unable to load reheat logs.');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   async function loadProducts() {
     try {
       setIsProductsLoading(true);
@@ -367,6 +424,11 @@ function App() {
       const currentCoolingProduct = getCoolingValues('product');
       if ((!currentCoolingProduct || !productNames.includes(currentCoolingProduct)) && productNames.length > 0) {
         setCoolingValue('product', productNames[0], { shouldValidate: true });
+      }
+
+      const currentReheatProduct = getReheatValues('product');
+      if ((!currentReheatProduct || !productNames.includes(currentReheatProduct)) && productNames.length > 0) {
+        setReheatValue('product', productNames[0], { shouldValidate: true });
       }
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Unable to load products.');
@@ -402,11 +464,13 @@ function App() {
         setSelectedStaffInitial(initial);
         setValue('initial', initial, { shouldValidate: true });
         setCoolingValue('initial', initial, { shouldValidate: true });
+        setReheatValue('initial', initial, { shouldValidate: true });
       } else {
         setSelectedStaffId(null);
         setSelectedStaffInitial('');
         setValue('initial', '', { shouldValidate: true });
         setCoolingValue('initial', '', { shouldValidate: true });
+        setReheatValue('initial', '', { shouldValidate: true });
       }
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Unable to load staff.');
@@ -418,6 +482,7 @@ function App() {
   useEffect(() => {
     void loadTodayCookingLogs();
     void loadTodayCoolingLogs();
+    void loadTodayReheatLogs();
     void loadProducts();
     void loadStaff();
   }, []);
@@ -507,6 +572,50 @@ function App() {
       setLoadError(error instanceof Error ? error.message : 'Unable to submit cooling log.');
     } finally {
       setIsCoolingSubmitting(false);
+    }
+  }
+
+  async function onSubmitReheat(values: ReheatFormValues) {
+    try {
+      setIsReheatSubmitting(true);
+
+      const payload: Omit<REHEATLOGSWrite, 'ID'> = {
+        Title: values.product,
+        Date: values.date,
+        StartTime: values.startTime,
+        EndTime: values.endTime,
+        Temp: values.temp,
+        Correctiveaction: values.correctiveAction,
+        Initial: selectedStaffInitial || values.initial,
+      };
+
+      const result = await REHEATLOGSService.create(payload);
+
+      if (!result.success) {
+        throw result.error ?? new Error('Unable to submit reheat log.');
+      }
+
+      setToastVisible(true);
+      setConfettiActive(true);
+
+      window.setTimeout(() => setToastVisible(false), 2200);
+      window.setTimeout(() => setConfettiActive(false), 1300);
+
+      resetReheat({
+        product: values.product,
+        date: toDateInputValue(new Date()),
+        startTime: '08:00',
+        endTime: '14:00',
+        temp: '165',
+        correctiveAction: 'None required',
+        initial: selectedStaffInitial || values.initial,
+      });
+
+      await loadTodayReheatLogs();
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Unable to submit reheat log.');
+    } finally {
+      setIsReheatSubmitting(false);
     }
   }
 
@@ -701,6 +810,7 @@ function App() {
                             setSelectedStaffInitial(staff.Initial?.trim() || '');
                             setValue('initial', staff.Initial?.trim() || '', { shouldValidate: true });
                             setCoolingValue('initial', staff.Initial?.trim() || '', { shouldValidate: true });
+                            setReheatValue('initial', staff.Initial?.trim() || '', { shouldValidate: true });
                           }}
                           className="h-4 w-4 rounded border-slate-300 accent-slate-700"
                         />
@@ -1006,6 +1116,155 @@ function App() {
                 </div>
               </motion.form>
             </>
+          ) : activeNav === 'Reheat' ? (
+            <>
+              <div className="rounded-2xl border border-slate-200 bg-slate-200/70 p-4 shadow-sm backdrop-blur-xl sm:p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-base font-semibold tracking-tight text-slate-900 sm:text-lg">Reheat Log Gallery</h2>
+                  <span className="rounded-full border border-slate-300 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                    {reheatLogs.length} Today
+                  </span>
+                </div>
+
+                {isLoading ? (
+                  <div className="rounded-xl border border-slate-200 bg-slate-100 p-4 text-sm">Loading logs…</div>
+                ) : reheatLogs.length === 0 ? (
+                  <div className="rounded-xl border border-slate-200 bg-slate-100 p-4 text-sm">No items for today</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <div className="grid gap-1">
+                      <div className={`${galleryColumnsClass} px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600`}>
+                        <span>Product</span>
+                        <span>Date</span>
+                        <span>Start</span>
+                        <span>End</span>
+                        <span>Temp</span>
+                        <span>Initial</span>
+                        <span>Corrective Notes</span>
+                      </div>
+
+                      {reheatLogs.map((log, index) => (
+                        <motion.article
+                          key={log.ID ?? `${log.Title}-${index}`}
+                          variants={cardMotion}
+                          initial="hidden"
+                          animate="visible"
+                          transition={{ duration: 0.35, delay: index * 0.06 }}
+                          className="px-1 py-1"
+                        >
+                          <div className={`${galleryColumnsClass} text-xs text-slate-700`}>
+                            <span className="truncate font-bold text-slate-900">{log.Title || 'Untitled Product'}</span>
+                            <span className="truncate">{log.Date || '—'}</span>
+                            <span className="truncate">{log.StartTime || '—'}</span>
+                            <span className="truncate">{log.EndTime || '—'}</span>
+                            <span className="truncate">{log.Temp ? `${log.Temp}°` : '—'}</span>
+                            <span className="truncate">{log.Initial || '—'}</span>
+                            <span className="truncate">{log.Correctiveaction || '—'}</span>
+                          </div>
+                        </motion.article>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <motion.form
+                onSubmit={handleSubmitReheat(onSubmitReheat)}
+                className="rounded-2xl border border-slate-200 bg-slate-200/70 p-4 shadow-sm backdrop-blur-xl sm:p-5"
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.1 }}
+              >
+                <h2 className="mb-4 text-base font-semibold tracking-tight text-slate-900 sm:text-lg">Reheat Log Form</h2>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <label className="text-xs font-medium text-slate-700">
+                    Product
+                    <select
+                      {...registerReheat('product', {
+                        required: 'Product is required',
+                        validate: (value) => value.trim().length > 0 || 'Product is required',
+                        onChange: () => clearReheatErrors('product'),
+                      })}
+                      disabled={isProductsLoading || products.length === 0}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                    >
+                      <option value="">
+                        {isProductsLoading ? 'Loading products...' : products.length === 0 ? 'No products found' : 'Select product'}
+                      </option>
+                      {products.map((productName) => (
+                        <option key={productName} value={productName}>
+                          {productName}
+                        </option>
+                      ))}
+                    </select>
+                    {reheatErrors.product && <span className="mt-1 block text-[11px] text-red-300">{reheatErrors.product.message}</span>}
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700">
+                    Date
+                    <input
+                      type="date"
+                      {...registerReheat('date', { required: 'Date is required' })}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                    />
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700">
+                    Start Time
+                    <input
+                      type="time"
+                      {...registerReheat('startTime', { required: 'Start time is required' })}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                    />
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700">
+                    End Time
+                    <input
+                      type="time"
+                      {...registerReheat('endTime', { required: 'End time is required' })}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                    />
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700">
+                    Temp
+                    <div className="relative mt-1">
+                      <Thermometer className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+                      <input
+                        {...registerReheat('temp', { required: 'Temperature is required' })}
+                        className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-8 pr-3 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                        placeholder="165"
+                      />
+                    </div>
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700">
+                    Initial
+                    <div className="relative mt-1">
+                      <UserRound className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+                      <input
+                        {...registerReheat('initial', { required: 'Initial is required', maxLength: 4 })}
+                        readOnly
+                        className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-8 pr-3 text-sm uppercase text-slate-900 outline-none transition focus:border-slate-500"
+                        placeholder="Select staff"
+                      />
+                    </div>
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700 sm:col-span-2 lg:col-span-3">
+                    Corrective Action
+                    <textarea
+                      {...registerReheat('correctiveAction')}
+                      rows={3}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                      placeholder="Action taken if temp is out of range"
+                    />
+                  </label>
+                </div>
+              </motion.form>
+            </>
           ) : (
             <>
           <div className="rounded-2xl border border-slate-200 bg-slate-200/70 p-4 shadow-sm backdrop-blur-xl sm:p-5">
@@ -1164,17 +1423,27 @@ function App() {
           <span className="text-xs font-medium text-slate-700">
             {activeNav === 'Cooling'
               ? 'Cooling summary ready for COOLING LOGS submission.'
+              : activeNav === 'Reheat'
+              ? 'Reheat summary ready for REHEAT LOGS submission.'
               : 'Cooking summary ready for COOK LOGS submission.'}
           </span>
           <motion.button
             type="button"
-            onClick={activeNav === 'Cooling' ? handleSubmitCooling(onSubmitCooling) : handleSubmit(onSubmit)}
+            onClick={
+              activeNav === 'Cooling'
+                ? handleSubmitCooling(onSubmitCooling)
+                : activeNav === 'Reheat'
+                ? handleSubmitReheat(onSubmitReheat)
+                : handleSubmit(onSubmit)
+            }
             whileTap={{ scale: 0.95 }}
-            disabled={activeNav === 'Cooling' ? isCoolingSubmitting : isSubmitting}
+            disabled={activeNav === 'Cooling' ? isCoolingSubmitting : activeNav === 'Reheat' ? isReheatSubmitting : isSubmitting}
             className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-700 px-5 text-sm font-semibold leading-none text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {activeNav === 'Cooling'
               ? (isCoolingSubmitting ? 'Submitting...' : 'Submit')
+              : activeNav === 'Reheat'
+              ? (isReheatSubmitting ? 'Submitting...' : 'Submit')
               : (isSubmitting ? 'Submitting...' : 'Submit')}
           </motion.button>
         </div>
