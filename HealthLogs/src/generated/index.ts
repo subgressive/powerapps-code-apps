@@ -6,10 +6,12 @@
 // Models
 export * as CommonModels from './models/CommonModels';
 export * as COOKLOGSModel from './models/COOKLOGSModel';
+export * as COOLINGLOGSModel from './models/COOLINGLOGSModel';
 export * as ProductsModel from './models/ProductsModel';
 export * as StaffModel from './models/StaffModel';
 
 // Services
 export * from './services/COOKLOGSService';
+export * from './services/COOLINGLOGSService';
 export * from './services/ProductsService';
 export * from './services/StaffService';

@@ -4,6 +4,8 @@ import {
   ChefHat,
   Clock3,
   Flame,
+  Lock,
+  Save,
   Snowflake,
   Users,
   Thermometer,
@@ -13,6 +15,8 @@ import {
 import { useForm } from 'react-hook-form';
 import type { COOKLOGSRead, COOKLOGSWrite } from './generated/models/COOKLOGSModel';
 import { COOKLOGSService } from './generated/services/COOKLOGSService';
+import type { COOLINGLOGSRead, COOLINGLOGSWrite } from './generated/models/COOLINGLOGSModel';
+import { COOLINGLOGSService } from './generated/services/COOLINGLOGSService';
 import { ProductsService } from './generated/services/ProductsService';
 import type { StaffRead } from './generated/models/StaffModel';
 import { StaffService } from './generated/services/StaffService';
@@ -29,6 +33,21 @@ interface CookingFormValues {
   initial: string;
 }
 
+interface CoolingFormValues {
+  product: string;
+  date: string;
+  startTime: string;
+  startTemp: string;
+  initial: string;
+}
+
+interface CoolingRowDraft {
+  twoHourTime: string;
+  twoHourTemp: string;
+  fourHourTime: string;
+  fourHourTemp: string;
+}
+
 const cardMotion = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0 },
@@ -36,6 +55,9 @@ const cardMotion = {
 
 const galleryColumnsClass =
   'grid min-w-[1020px] grid-cols-[minmax(220px,2fr)_minmax(120px,1fr)_minmax(90px,0.8fr)_minmax(90px,0.8fr)_minmax(80px,0.7fr)_minmax(90px,0.8fr)_minmax(250px,2.4fr)] items-center gap-x-3';
+
+const coolingGalleryColumnsClass =
+  'grid min-w-[980px] grid-cols-[minmax(120px,1.2fr)_minmax(96px,0.8fr)_minmax(80px,0.65fr)_minmax(80px,0.65fr)_minmax(82px,0.65fr)_minmax(82px,0.65fr)_minmax(82px,0.65fr)_minmax(82px,0.65fr)_minmax(56px,0.45fr)_minmax(44px,0.35fr)] items-center gap-x-2';
 
 function toDateInputValue(date: Date): string {
   const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -79,6 +101,84 @@ function formatReadableDateTime(date: Date): string {
   });
 }
 
+function formatToAmPm(hours24: number, minutes: number): string {
+  const normalizedHour = ((hours24 + 11) % 12) + 1;
+  const minutePart = String(minutes).padStart(2, '0');
+  const period = hours24 >= 12 ? 'PM' : 'AM';
+  return `${normalizedHour}:${minutePart} ${period}`;
+}
+
+function getCurrentTimeAmPm(): string {
+  const now = new Date();
+  return formatToAmPm(now.getHours(), now.getMinutes());
+}
+
+function normalizeTimeAmPm(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  const twentyFourHourMatch = trimmed.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+  if (twentyFourHourMatch) {
+    const hours = Number(twentyFourHourMatch[1]);
+    const minutes = Number(twentyFourHourMatch[2]);
+    return formatToAmPm(hours, minutes);
+  }
+
+  const twelveHourMatch = trimmed.match(/^(1[0-2]|0?[1-9])(?::([0-5]\d))?\s*([AaPp][Mm])$/);
+  if (twelveHourMatch) {
+    const hour = Number(twelveHourMatch[1]);
+    const minute = Number(twelveHourMatch[2] ?? '00');
+    const period = twelveHourMatch[3].toUpperCase();
+    const hours24 = period === 'PM' ? (hour % 12) + 12 : hour % 12;
+    return formatToAmPm(hours24, minute);
+  }
+
+  return trimmed;
+}
+
+function hasValue(value?: string): boolean {
+  return Boolean(value && value.trim().length > 0);
+}
+
+function normalizeTemperatureInput(value: string): string {
+  const normalized = value.replace(/[^0-9.-]/g, '');
+  const parsed = Number(normalized);
+
+  if (!normalized || Number.isNaN(parsed)) {
+    return '';
+  }
+
+  return String(parsed);
+}
+
+function formatTemperatureDisplay(value?: string): string {
+  if (!hasValue(value)) {
+    return '—';
+  }
+
+  const normalized = normalizeTemperatureInput(value ?? '');
+  return normalized ? `${normalized}°` : '—';
+}
+
+function getCoolingRowStage(log: COOLINGLOGSRead): 'twoHour' | 'fourHour' | 'complete' {
+  const hasTwoHourTime = hasValue(log.OData__x0032_HTime);
+  const hasTwoHourTemp = hasValue(log.OData__x0032_HTemp);
+  const hasFourHourTime = hasValue(log.OData__x0034_HTime);
+  const hasFourHourTemp = hasValue(log.OData__x0034_HTemp);
+
+  if (hasTwoHourTime && hasTwoHourTemp && hasFourHourTime && hasFourHourTemp) {
+    return 'complete';
+  }
+
+  if (hasTwoHourTime && hasTwoHourTemp) {
+    return 'fourHour';
+  }
+
+  return 'twoHour';
+}
+
 function ConfettiBurst({ active }: { active: boolean }) {
   const pieces = useMemo(
     () =>
@@ -120,7 +220,11 @@ function App() {
   const [now, setNow] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCoolingSubmitting, setIsCoolingSubmitting] = useState(false);
+  const [savingRowId, setSavingRowId] = useState<number | null>(null);
   const [logs, setLogs] = useState<COOKLOGSRead[]>([]);
+  const [coolingLogs, setCoolingLogs] = useState<COOLINGLOGSRead[]>([]);
+  const [coolingRowDrafts, setCoolingRowDrafts] = useState<Record<number, CoolingRowDraft>>({});
   const [products, setProducts] = useState<string[]>([]);
   const [isProductsLoading, setIsProductsLoading] = useState(true);
   const [staffList, setStaffList] = useState<StaffRead[]>([]);
@@ -147,6 +251,24 @@ function App() {
       endTime: '14:00',
       temp: '165',
       correctiveAction: 'None required',
+      initial: '',
+    },
+  });
+
+  const {
+    register: registerCooling,
+    handleSubmit: handleSubmitCooling,
+    clearErrors: clearCoolingErrors,
+    getValues: getCoolingValues,
+    setValue: setCoolingValue,
+    reset: resetCooling,
+    formState: { errors: coolingErrors },
+  } = useForm<CoolingFormValues>({
+    defaultValues: {
+      product: '',
+      date: toDateInputValue(new Date()),
+      startTime: getCurrentTimeAmPm(),
+      startTemp: '135',
       initial: '',
     },
   });
@@ -182,6 +304,42 @@ function App() {
     }
   }
 
+  async function loadTodayCoolingLogs() {
+    try {
+      setIsLoading(true);
+      setLoadError(null);
+
+      const result = await COOLINGLOGSService.getAll({
+        top: 100,
+        orderBy: ['Created desc'],
+      });
+
+      if (!result.success) {
+        throw result.error ?? new Error('Unable to fetch cooling logs.');
+      }
+
+      const todaysLogs = result.data.filter((record) => isTodayValue(record.Date));
+      setCoolingLogs(todaysLogs);
+
+      const nextDrafts: Record<number, CoolingRowDraft> = {};
+      todaysLogs.forEach((log) => {
+        if (typeof log.ID === 'number') {
+          nextDrafts[log.ID] = {
+            twoHourTime: log.OData__x0032_HTime ?? '',
+            twoHourTemp: log.OData__x0032_HTemp ?? '',
+            fourHourTime: log.OData__x0034_HTime ?? '',
+            fourHourTemp: log.OData__x0034_HTemp ?? '',
+          };
+        }
+      });
+      setCoolingRowDrafts(nextDrafts);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Unable to load cooling logs.');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   async function loadProducts() {
     try {
       setIsProductsLoading(true);
@@ -204,6 +362,11 @@ function App() {
       const currentProduct = getValues('product');
       if ((!currentProduct || !productNames.includes(currentProduct)) && productNames.length > 0) {
         setValue('product', productNames[0], { shouldValidate: true });
+      }
+
+      const currentCoolingProduct = getCoolingValues('product');
+      if ((!currentCoolingProduct || !productNames.includes(currentCoolingProduct)) && productNames.length > 0) {
+        setCoolingValue('product', productNames[0], { shouldValidate: true });
       }
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Unable to load products.');
@@ -238,10 +401,12 @@ function App() {
         setSelectedStaffId(firstStaff.ID ?? null);
         setSelectedStaffInitial(initial);
         setValue('initial', initial, { shouldValidate: true });
+        setCoolingValue('initial', initial, { shouldValidate: true });
       } else {
         setSelectedStaffId(null);
         setSelectedStaffInitial('');
         setValue('initial', '', { shouldValidate: true });
+        setCoolingValue('initial', '', { shouldValidate: true });
       }
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Unable to load staff.');
@@ -252,6 +417,7 @@ function App() {
 
   useEffect(() => {
     void loadTodayCookingLogs();
+    void loadTodayCoolingLogs();
     void loadProducts();
     void loadStaff();
   }, []);
@@ -297,6 +463,136 @@ function App() {
       setLoadError(error instanceof Error ? error.message : 'Unable to submit cooking log.');
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function onSubmitCooling(values: CoolingFormValues) {
+    try {
+      setIsCoolingSubmitting(true);
+
+      const payload: Omit<COOLINGLOGSWrite, 'ID'> = {
+        Title: values.product,
+        Date: values.date,
+        StartTime: normalizeTimeAmPm(values.startTime) || getCurrentTimeAmPm(),
+        StartTemp: values.startTemp,
+        OData__x0032_HTime: '',
+        OData__x0032_HTemp: '',
+        OData__x0034_HTime: '',
+        OData__x0034_HTemp: '',
+        Initial: selectedStaffInitial || values.initial,
+      };
+
+      const result = await COOLINGLOGSService.create(payload);
+
+      if (!result.success) {
+        throw result.error ?? new Error('Unable to submit cooling log.');
+      }
+
+      setToastVisible(true);
+      setConfettiActive(true);
+
+      window.setTimeout(() => setToastVisible(false), 2200);
+      window.setTimeout(() => setConfettiActive(false), 1300);
+
+      resetCooling({
+        product: values.product,
+        date: toDateInputValue(new Date()),
+        startTime: getCurrentTimeAmPm(),
+        startTemp: '135',
+        initial: selectedStaffInitial || values.initial,
+      });
+
+      await loadTodayCoolingLogs();
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Unable to submit cooling log.');
+    } finally {
+      setIsCoolingSubmitting(false);
+    }
+  }
+
+  function updateCoolingRowDraft(id: number, field: keyof CoolingRowDraft, value: string) {
+    setCoolingRowDrafts((previous) => ({
+      ...previous,
+      [id]: {
+        twoHourTime: previous[id]?.twoHourTime ?? '',
+        twoHourTemp: previous[id]?.twoHourTemp ?? '',
+        fourHourTime: previous[id]?.fourHourTime ?? '',
+        fourHourTemp: previous[id]?.fourHourTemp ?? '',
+        [field]: value,
+      },
+    }));
+  }
+
+  async function saveCoolingRow(log: COOLINGLOGSRead) {
+    if (typeof log.ID !== 'number') {
+      return;
+    }
+
+    const draft = coolingRowDrafts[log.ID];
+    if (!draft) {
+      return;
+    }
+
+    const stage = getCoolingRowStage(log);
+
+    try {
+      setSavingRowId(log.ID);
+
+      if (stage === 'twoHour') {
+        if (!hasValue(draft.twoHourTime) || !hasValue(draft.twoHourTemp)) {
+          throw new Error('Enter both 2H time and 2H temp before saving.');
+        }
+
+        const normalizedTwoHourTime = normalizeTimeAmPm(draft.twoHourTime);
+        if (!normalizedTwoHourTime) {
+          throw new Error('2H time is required.');
+        }
+
+        const normalizedTwoHourTemp = normalizeTemperatureInput(draft.twoHourTemp);
+        if (!normalizedTwoHourTemp) {
+          throw new Error('2H temp must be a numeric value.');
+        }
+
+        const updateResult = await COOLINGLOGSService.update(log.ID.toString(), {
+          OData__x0032_HTime: normalizedTwoHourTime,
+          OData__x0032_HTemp: normalizedTwoHourTemp,
+        });
+
+        if (!updateResult.success) {
+          throw updateResult.error ?? new Error('Unable to save 2H values.');
+        }
+      }
+
+      if (stage === 'fourHour') {
+        if (!hasValue(draft.fourHourTime) || !hasValue(draft.fourHourTemp)) {
+          throw new Error('Enter both 4H time and 4H temp before saving.');
+        }
+
+        const normalizedFourHourTime = normalizeTimeAmPm(draft.fourHourTime);
+        if (!normalizedFourHourTime) {
+          throw new Error('4H time is required.');
+        }
+
+        const normalizedFourHourTemp = normalizeTemperatureInput(draft.fourHourTemp);
+        if (!normalizedFourHourTemp) {
+          throw new Error('4H temp must be a numeric value.');
+        }
+
+        const updateResult = await COOLINGLOGSService.update(log.ID.toString(), {
+          OData__x0034_HTime: normalizedFourHourTime,
+          OData__x0034_HTemp: normalizedFourHourTemp,
+        });
+
+        if (!updateResult.success) {
+          throw updateResult.error ?? new Error('Unable to save 4H values.');
+        }
+      }
+
+      await loadTodayCoolingLogs();
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Unable to save cooling row.');
+    } finally {
+      setSavingRowId(null);
     }
   }
 
@@ -404,6 +700,7 @@ function App() {
                             setSelectedStaffId(staff.ID ?? null);
                             setSelectedStaffInitial(staff.Initial?.trim() || '');
                             setValue('initial', staff.Initial?.trim() || '', { shouldValidate: true });
+                            setCoolingValue('initial', staff.Initial?.trim() || '', { shouldValidate: true });
                           }}
                           className="h-4 w-4 rounded border-slate-300 accent-slate-700"
                         />
@@ -413,6 +710,302 @@ function App() {
                 </div>
               )}
             </div>
+          ) : activeNav === 'Cooling' ? (
+            <>
+              <div className="rounded-2xl border border-slate-200 bg-slate-200/70 p-4 shadow-sm backdrop-blur-xl sm:p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-base font-semibold tracking-tight text-slate-900 sm:text-lg">Cooling Log Gallery</h2>
+                  <span className="rounded-full border border-slate-300 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                    {coolingLogs.length} Today
+                  </span>
+                </div>
+
+                {isLoading ? (
+                  <div className="rounded-xl border border-slate-200 bg-slate-100 p-4 text-sm">Loading logs…</div>
+                ) : coolingLogs.length === 0 ? (
+                  <div className="rounded-xl border border-slate-200 bg-slate-100 p-4 text-sm">No items for today</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <div className="grid gap-1">
+                      <div className={`${coolingGalleryColumnsClass} px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600`}>
+                        <span>Product</span>
+                        <span>Date</span>
+                        <span>Start</span>
+                        <span>Start Temp</span>
+                        <span>2H Time</span>
+                        <span>2H Temp</span>
+                        <span>4H Time</span>
+                        <span>4H Temp</span>
+                        <span>Initial</span>
+                        <span>Save</span>
+                      </div>
+
+                      {coolingLogs.map((log, index) => {
+                        const itemKey = log.ID ?? `${log.Title}-${index}`;
+                        const stage = getCoolingRowStage(log);
+                        const rowId = log.ID;
+                        const draft = typeof rowId === 'number'
+                          ? (coolingRowDrafts[rowId] ?? {
+                              twoHourTime: log.OData__x0032_HTime ?? '',
+                              twoHourTemp: log.OData__x0032_HTemp ?? '',
+                              fourHourTime: log.OData__x0034_HTime ?? '',
+                              fourHourTemp: log.OData__x0034_HTemp ?? '',
+                            })
+                          : {
+                              twoHourTime: log.OData__x0032_HTime ?? '',
+                              twoHourTemp: log.OData__x0032_HTemp ?? '',
+                              fourHourTime: log.OData__x0034_HTime ?? '',
+                              fourHourTemp: log.OData__x0034_HTemp ?? '',
+                            };
+                        const canEditTwoHour = stage === 'twoHour';
+                        const canEditFourHour = stage === 'fourHour';
+                        const rowSaving = typeof rowId === 'number' && savingRowId === rowId;
+
+                        return (
+                          <motion.article
+                            key={itemKey}
+                            variants={cardMotion}
+                            initial="hidden"
+                            animate="visible"
+                            transition={{ duration: 0.35, delay: index * 0.06 }}
+                            className="px-1 py-1"
+                          >
+                            <div className={`${coolingGalleryColumnsClass} text-xs text-slate-700`}>
+                              <span className="truncate font-bold text-slate-900">{log.Title || 'Untitled Product'}</span>
+                              <span className="truncate">{log.Date || '—'}</span>
+                              <span className="truncate">{log.StartTime || '—'}</span>
+                              <span className="truncate">{log.StartTemp ? `${log.StartTemp}°` : '—'}</span>
+
+                              <input
+                                type="text"
+                                value={draft.twoHourTime}
+                                readOnly={!canEditTwoHour}
+                                disabled={!canEditTwoHour || rowSaving}
+                                onFocus={() => {
+                                  if (canEditTwoHour && typeof rowId === 'number' && !hasValue(draft.twoHourTime)) {
+                                    updateCoolingRowDraft(rowId, 'twoHourTime', getCurrentTimeAmPm());
+                                  }
+                                }}
+                                onChange={(event) => {
+                                  if (typeof rowId === 'number') {
+                                    updateCoolingRowDraft(rowId, 'twoHourTime', event.target.value);
+                                  }
+                                }}
+                                onBlur={(event) => {
+                                  if (typeof rowId === 'number') {
+                                    updateCoolingRowDraft(rowId, 'twoHourTime', normalizeTimeAmPm(event.target.value));
+                                  }
+                                }}
+                                className="h-7 rounded-md border border-slate-300 bg-white px-1.5 text-xs text-slate-900 disabled:border-transparent disabled:bg-transparent disabled:text-slate-600"
+                                placeholder="h:mm AM/PM"
+                              />
+
+                              {canEditTwoHour ? (
+                                <input
+                                  value={draft.twoHourTemp}
+                                  readOnly={false}
+                                  disabled={rowSaving}
+                                  onChange={(event) => {
+                                    if (typeof rowId === 'number') {
+                                      updateCoolingRowDraft(rowId, 'twoHourTemp', event.target.value.replace(/[^0-9.-]/g, ''));
+                                    }
+                                  }}
+                                  className="h-8 rounded-lg border border-slate-300 bg-white px-2 text-xs text-slate-900 disabled:bg-slate-100 disabled:text-slate-600"
+                                  placeholder="Temp"
+                                  inputMode="decimal"
+                                />
+                              ) : (
+                                <span className="truncate text-slate-700">{formatTemperatureDisplay(draft.twoHourTemp)}</span>
+                              )}
+
+                              <input
+                                type="text"
+                                value={draft.fourHourTime}
+                                readOnly={!canEditFourHour}
+                                disabled={!canEditFourHour || rowSaving}
+                                onFocus={() => {
+                                  if (canEditFourHour && typeof rowId === 'number' && !hasValue(draft.fourHourTime)) {
+                                    updateCoolingRowDraft(rowId, 'fourHourTime', getCurrentTimeAmPm());
+                                  }
+                                }}
+                                onChange={(event) => {
+                                  if (typeof rowId === 'number') {
+                                    updateCoolingRowDraft(rowId, 'fourHourTime', event.target.value);
+                                  }
+                                }}
+                                onBlur={(event) => {
+                                  if (typeof rowId === 'number') {
+                                    updateCoolingRowDraft(rowId, 'fourHourTime', normalizeTimeAmPm(event.target.value));
+                                  }
+                                }}
+                                className="h-7 rounded-md border border-slate-300 bg-white px-1.5 text-xs text-slate-900 disabled:border-transparent disabled:bg-transparent disabled:text-slate-600"
+                                placeholder="h:mm AM/PM"
+                              />
+
+                              {canEditFourHour ? (
+                                <input
+                                  value={draft.fourHourTemp}
+                                  readOnly={false}
+                                  disabled={rowSaving}
+                                  onChange={(event) => {
+                                    if (typeof rowId === 'number') {
+                                      updateCoolingRowDraft(rowId, 'fourHourTemp', event.target.value.replace(/[^0-9.-]/g, ''));
+                                    }
+                                  }}
+                                  className="h-8 rounded-lg border border-slate-300 bg-white px-2 text-xs text-slate-900 disabled:bg-slate-100 disabled:text-slate-600"
+                                  placeholder="Temp"
+                                  inputMode="decimal"
+                                />
+                              ) : (
+                                <span className="truncate text-slate-700">{formatTemperatureDisplay(draft.fourHourTemp)}</span>
+                              )}
+
+                              <span className="truncate">{log.Initial || '—'}</span>
+
+                              <button
+                                type="button"
+                                disabled={stage === 'complete' || rowSaving || typeof rowId !== 'number'}
+                                onClick={() => void saveCoolingRow(log)}
+                                title={stage === 'complete' ? 'Locked' : rowSaving ? 'Saving' : 'Save'}
+                                className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-700 bg-slate-700 text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-transparent disabled:text-slate-500"
+                              >
+                                {stage === 'complete' ? (
+                                  <Lock className="h-3.5 w-3.5" />
+                                ) : rowSaving ? (
+                                  <Clock3 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Save className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          </motion.article>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <motion.form
+                onSubmit={handleSubmitCooling(onSubmitCooling)}
+                className="rounded-2xl border border-slate-200 bg-slate-200/70 p-4 shadow-sm backdrop-blur-xl sm:p-5"
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.1 }}
+              >
+                <h2 className="mb-4 text-base font-semibold tracking-tight text-slate-900 sm:text-lg">Cooling Log Form</h2>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <label className="text-xs font-medium text-slate-700">
+                    Product
+                    <select
+                      {...registerCooling('product', {
+                        required: 'Product is required',
+                        validate: (value) => value.trim().length > 0 || 'Product is required',
+                        onChange: () => clearCoolingErrors('product'),
+                      })}
+                      disabled={isProductsLoading || products.length === 0}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                    >
+                      <option value="">
+                        {isProductsLoading ? 'Loading products...' : products.length === 0 ? 'No products found' : 'Select product'}
+                      </option>
+                      {products.map((productName) => (
+                        <option key={productName} value={productName}>
+                          {productName}
+                        </option>
+                      ))}
+                    </select>
+                    {coolingErrors.product && <span className="mt-1 block text-[11px] text-red-300">{coolingErrors.product.message}</span>}
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700">
+                    Date
+                    <input
+                      type="date"
+                      {...registerCooling('date', { required: 'Date is required' })}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                    />
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700">
+                    Start Time
+                    <input
+                      type="text"
+                      {...registerCooling('startTime', {
+                        required: 'Start time is required',
+                        setValueAs: (value) => normalizeTimeAmPm(value ?? ''),
+                      })}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                      placeholder={getCurrentTimeAmPm()}
+                    />
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700">
+                    Start Temp
+                    <div className="relative mt-1">
+                      <Thermometer className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+                      <input
+                        {...registerCooling('startTemp', { required: 'Start temp is required' })}
+                        className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-8 pr-3 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                        placeholder="135"
+                      />
+                    </div>
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700">
+                    2H Time
+                    <input
+                      type="text"
+                      readOnly
+                      value=""
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-600 outline-none"
+                    />
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700">
+                    2H Temp
+                    <input
+                      readOnly
+                      value=""
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-600 outline-none"
+                    />
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700">
+                    4H Time
+                    <input
+                      type="text"
+                      readOnly
+                      value=""
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-600 outline-none"
+                    />
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700">
+                    4H Temp
+                    <input
+                      readOnly
+                      value=""
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-600 outline-none"
+                    />
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700">
+                    Initial
+                    <div className="relative mt-1">
+                      <UserRound className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+                      <input
+                        {...registerCooling('initial', { required: 'Initial is required', maxLength: 4 })}
+                        readOnly
+                        className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-8 pr-3 text-sm uppercase text-slate-900 outline-none transition focus:border-slate-500"
+                        placeholder="Select staff"
+                      />
+                    </div>
+                  </label>
+                </div>
+              </motion.form>
+            </>
           ) : (
             <>
           <div className="rounded-2xl border border-slate-200 bg-slate-200/70 p-4 shadow-sm backdrop-blur-xl sm:p-5">
@@ -568,15 +1161,21 @@ function App() {
 
       <footer className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-slate-100/95 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-          <span className="text-xs font-medium text-slate-700">Cooking summary ready for COOK LOGS submission.</span>
+          <span className="text-xs font-medium text-slate-700">
+            {activeNav === 'Cooling'
+              ? 'Cooling summary ready for COOLING LOGS submission.'
+              : 'Cooking summary ready for COOK LOGS submission.'}
+          </span>
           <motion.button
             type="button"
-            onClick={handleSubmit(onSubmit)}
+            onClick={activeNav === 'Cooling' ? handleSubmitCooling(onSubmitCooling) : handleSubmit(onSubmit)}
             whileTap={{ scale: 0.95 }}
-            disabled={isSubmitting}
+            disabled={activeNav === 'Cooling' ? isCoolingSubmitting : isSubmitting}
             className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-700 px-5 text-sm font-semibold leading-none text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isSubmitting ? 'Submitting...' : 'Submit'}
+            {activeNav === 'Cooling'
+              ? (isCoolingSubmitting ? 'Submitting...' : 'Submit')
+              : (isSubmitting ? 'Submitting...' : 'Submit')}
           </motion.button>
         </div>
       </footer>

@@ -13,7 +13,7 @@ import { getClient } from '@microsoft/power-apps/data';
 export class ProductsService {
   private static readonly dataSourceName = 'products';
 
-  private static readonly client = getClient(dataSourcesInfo);
+  private static readonly client = getClient(dataSourcesInfo as never);
 
   public static async create(record: Omit<ProductsWrite, 'ID'>): Promise<IOperationResult<ProductsRead>> {
     const result = await ProductsService.client.createRecordAsync<Omit<ProductsWrite, 'ID'>, ProductsRead>(

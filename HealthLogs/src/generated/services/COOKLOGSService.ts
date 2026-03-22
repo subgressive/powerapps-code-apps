@@ -13,7 +13,7 @@ import { getClient } from '@microsoft/power-apps/data';
 export class COOKLOGSService {
   private static readonly dataSourceName = 'cooklogs';
 
-  private static readonly client = getClient(dataSourcesInfo);
+  private static readonly client = getClient(dataSourcesInfo as never);
 
   public static async create(record: Omit<COOKLOGSWrite, 'ID'>): Promise<IOperationResult<COOKLOGSRead>> {
     const result = await COOKLOGSService.client.createRecordAsync<Omit<COOKLOGSWrite, 'ID'>, COOKLOGSRead>(
