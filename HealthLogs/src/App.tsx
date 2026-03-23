@@ -9,6 +9,7 @@ import {
   Snowflake,
   Users,
   Thermometer,
+  Droplets,
   Undo2,
   UserRound,
 } from 'lucide-react';
@@ -19,11 +20,13 @@ import type { COOLINGLOGSRead, COOLINGLOGSWrite } from './generated/models/COOLI
 import { COOLINGLOGSService } from './generated/services/COOLINGLOGSService';
 import type { REHEATLOGSRead, REHEATLOGSWrite } from './generated/models/REHEATLOGSModel';
 import { REHEATLOGSService } from './generated/services/REHEATLOGSService';
+import type { THAWINGLOGSRead, THAWINGLOGSWrite } from './generated/models/THAWINGLOGSModel';
+import { THAWINGLOGSService } from './generated/services/THAWINGLOGSService';
 import { ProductsService } from './generated/services/ProductsService';
 import type { StaffRead } from './generated/models/StaffModel';
 import { StaffService } from './generated/services/StaffService';
 
-type NavItem = 'Cooking' | 'Cooling' | 'Reheat' | 'Staff';
+type NavItem = 'Cooking' | 'Cooling' | 'Reheat' | 'Thawing' | 'Staff';
 
 interface CookingFormValues {
   product: string;
@@ -60,6 +63,23 @@ interface ReheatFormValues {
   initial: string;
 }
 
+interface ThawingFormValues {
+  product: string;
+  date: string;
+  startTime: string;
+  startTemp: string;
+  initial: string;
+}
+
+interface ThawingRowDraft {
+  endDate: string;
+  endTime: string;
+  endTemp: string;
+  approvedSafe: string;
+  correctiveAction: string;
+  completed: string;
+}
+
 const cardMotion = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0 },
@@ -70,6 +90,9 @@ const galleryColumnsClass =
 
 const coolingGalleryColumnsClass =
   'grid min-w-[980px] grid-cols-[minmax(120px,1.2fr)_minmax(96px,0.8fr)_minmax(80px,0.65fr)_minmax(80px,0.65fr)_minmax(82px,0.65fr)_minmax(82px,0.65fr)_minmax(82px,0.65fr)_minmax(82px,0.65fr)_minmax(56px,0.45fr)_minmax(44px,0.35fr)] items-center gap-x-2';
+
+const thawingGalleryColumnsClass =
+  'grid min-w-[980px] grid-cols-[minmax(88px,0.9fr)_minmax(90px,0.72fr)_minmax(75px,0.62fr)_minmax(68px,0.52fr)_minmax(104px,0.82fr)_minmax(82px,0.66fr)_minmax(72px,0.56fr)_minmax(56px,0.4fr)_minmax(150px,1.25fr)_minmax(56px,0.4fr)_minmax(42px,0.3fr)] items-center gap-x-2';
 
 function toDateInputValue(date: Date): string {
   const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -228,16 +251,19 @@ function ConfettiBurst({ active }: { active: boolean }) {
 }
 
 function App() {
-  const [activeNav, setActiveNav] = useState<NavItem>('Cooking');
+  const [activeNav, setActiveNav] = useState<NavItem>('Staff');
   const [now, setNow] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCoolingSubmitting, setIsCoolingSubmitting] = useState(false);
   const [isReheatSubmitting, setIsReheatSubmitting] = useState(false);
+  const [isThawingSubmitting, setIsThawingSubmitting] = useState(false);
   const [savingRowId, setSavingRowId] = useState<number | null>(null);
   const [logs, setLogs] = useState<COOKLOGSRead[]>([]);
   const [coolingLogs, setCoolingLogs] = useState<COOLINGLOGSRead[]>([]);
   const [reheatLogs, setReheatLogs] = useState<REHEATLOGSRead[]>([]);
+  const [thawingLogs, setThawingLogs] = useState<THAWINGLOGSRead[]>([]);
+  const [thawingRowDrafts, setThawingRowDrafts] = useState<Record<number, ThawingRowDraft>>({});
   const [coolingRowDrafts, setCoolingRowDrafts] = useState<Record<number, CoolingRowDraft>>({});
   const [products, setProducts] = useState<string[]>([]);
   const [isProductsLoading, setIsProductsLoading] = useState(true);
@@ -307,6 +333,24 @@ function App() {
     },
   });
 
+  const {
+    register: registerThawing,
+    handleSubmit: handleSubmitThawing,
+    clearErrors: clearThawingErrors,
+    getValues: getThawingValues,
+    setValue: setThawingValue,
+    reset: resetThawing,
+    formState: { errors: thawingErrors },
+  } = useForm<ThawingFormValues>({
+    defaultValues: {
+      product: '',
+      date: toDateInputValue(new Date()),
+      startTime: getCurrentTimeAmPm(),
+      startTemp: '',
+      initial: '',
+    },
+  });
+
   useEffect(() => {
     const timer = window.setInterval(() => {
       setNow(new Date());
@@ -338,9 +382,11 @@ function App() {
     }
   }
 
-  async function loadTodayCoolingLogs() {
+  async function loadTodayCoolingLogs(showLoading = true) {
     try {
-      setIsLoading(true);
+      if (showLoading) {
+        setIsLoading(true);
+      }
       setLoadError(null);
 
       const result = await COOLINGLOGSService.getAll({
@@ -370,7 +416,9 @@ function App() {
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Unable to load cooling logs.');
     } finally {
-      setIsLoading(false);
+      if (showLoading) {
+        setIsLoading(false);
+      }
     }
   }
 
@@ -394,6 +442,48 @@ function App() {
       setLoadError(error instanceof Error ? error.message : 'Unable to load reheat logs.');
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function loadThawingLogs(showLoading = true) {
+    try {
+      if (showLoading) {
+        setIsLoading(true);
+      }
+      setLoadError(null);
+
+      const result = await THAWINGLOGSService.getAll({
+        top: 500,
+        orderBy: ['Created desc'],
+      });
+
+      if (!result.success) {
+        throw result.error ?? new Error('Unable to fetch thawing logs.');
+      }
+
+      const openLogs = result.data.filter((record) => record.Completed?.Value !== 'Yes');
+      setThawingLogs(openLogs);
+
+      const nextDrafts: Record<number, ThawingRowDraft> = {};
+      openLogs.forEach((log) => {
+        if (typeof log.ID === 'number') {
+          nextDrafts[log.ID] = {
+            endDate: log.EndDate ?? '',
+            endTime: log.EndTime ?? '',
+            endTemp: log.EndTemp ?? '',
+            approvedSafe: log.ApprovedSafe?.Value ?? 'No',
+            correctiveAction: log.Correctiveaction ?? '',
+            completed: log.Completed?.Value ?? 'No',
+          };
+        }
+      });
+      setThawingRowDrafts(nextDrafts);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Unable to load thawing logs.');
+    } finally {
+      if (showLoading) {
+        setIsLoading(false);
+      }
     }
   }
 
@@ -430,6 +520,11 @@ function App() {
       if ((!currentReheatProduct || !productNames.includes(currentReheatProduct)) && productNames.length > 0) {
         setReheatValue('product', productNames[0], { shouldValidate: true });
       }
+
+      const currentThawingProduct = getThawingValues('product');
+      if ((!currentThawingProduct || !productNames.includes(currentThawingProduct)) && productNames.length > 0) {
+        setThawingValue('product', productNames[0], { shouldValidate: true });
+      }
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Unable to load products.');
     } finally {
@@ -465,12 +560,14 @@ function App() {
         setValue('initial', initial, { shouldValidate: true });
         setCoolingValue('initial', initial, { shouldValidate: true });
         setReheatValue('initial', initial, { shouldValidate: true });
+        setThawingValue('initial', initial, { shouldValidate: true });
       } else {
         setSelectedStaffId(null);
         setSelectedStaffInitial('');
         setValue('initial', '', { shouldValidate: true });
         setCoolingValue('initial', '', { shouldValidate: true });
         setReheatValue('initial', '', { shouldValidate: true });
+        setThawingValue('initial', '', { shouldValidate: true });
       }
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Unable to load staff.');
@@ -483,6 +580,7 @@ function App() {
     void loadTodayCookingLogs();
     void loadTodayCoolingLogs();
     void loadTodayReheatLogs();
+    void loadThawingLogs();
     void loadProducts();
     void loadStaff();
   }, []);
@@ -619,6 +717,47 @@ function App() {
     }
   }
 
+  async function onSubmitThawing(values: ThawingFormValues) {
+    try {
+      setIsThawingSubmitting(true);
+
+      const payload = {
+        Title: values.product,
+        Date: values.date,
+        StartTime: normalizeTimeAmPm(values.startTime) || getCurrentTimeAmPm(),
+        StartTemp: values.startTemp,
+        ApprovedSafe: { Value: 'No' },
+        Completed: { Value: 'No' },
+        Initial: selectedStaffInitial || values.initial,
+      } as unknown as Omit<THAWINGLOGSWrite, 'ID'>;
+
+      const result = await THAWINGLOGSService.create(payload);
+
+      if (!result.success) {
+        throw result.error ?? new Error('Unable to submit thawing log.');
+      }
+
+      setToastVisible(true);
+      setConfettiActive(true);
+      window.setTimeout(() => setToastVisible(false), 2200);
+      window.setTimeout(() => setConfettiActive(false), 1300);
+
+      resetThawing({
+        product: values.product,
+        date: toDateInputValue(new Date()),
+        startTime: getCurrentTimeAmPm(),
+        startTemp: '',
+        initial: selectedStaffInitial || values.initial,
+      });
+
+      await loadThawingLogs();
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Unable to submit thawing log.');
+    } finally {
+      setIsThawingSubmitting(false);
+    }
+  }
+
   function updateCoolingRowDraft(id: number, field: keyof CoolingRowDraft, value: string) {
     setCoolingRowDrafts((previous) => ({
       ...previous,
@@ -697,9 +836,59 @@ function App() {
         }
       }
 
-      await loadTodayCoolingLogs();
+      await loadTodayCoolingLogs(false);
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Unable to save cooling row.');
+    } finally {
+      setSavingRowId(null);
+    }
+  }
+
+  function updateThawingRowDraft(id: number, field: keyof ThawingRowDraft, value: string) {
+    setThawingRowDrafts((previous) => ({
+      ...previous,
+      [id]: {
+        endDate: previous[id]?.endDate ?? '',
+        endTime: previous[id]?.endTime ?? '',
+        endTemp: previous[id]?.endTemp ?? '',
+        approvedSafe: previous[id]?.approvedSafe ?? 'No',
+        correctiveAction: previous[id]?.correctiveAction ?? '',
+        completed: previous[id]?.completed ?? 'No',
+        [field]: value,
+      },
+    }));
+  }
+
+  async function saveThawingRow(log: THAWINGLOGSRead) {
+    if (typeof log.ID !== 'number') {
+      return;
+    }
+
+    const draft = thawingRowDrafts[log.ID];
+    if (!draft) {
+      return;
+    }
+
+    try {
+      setSavingRowId(log.ID);
+
+      const updateResult = await THAWINGLOGSService.update(log.ID.toString(), {
+        EndDate: draft.endDate || undefined,
+        EndTime: normalizeTimeAmPm(draft.endTime) || undefined,
+        EndTemp: normalizeTemperatureInput(draft.endTemp) || undefined,
+        ApprovedSafe: { Value: draft.approvedSafe } as unknown as string,
+        Correctiveaction: draft.correctiveAction || undefined,
+        Completed: { Value: draft.completed } as unknown as string,
+        Initial: selectedStaffInitial || log.Initial || undefined,
+      });
+
+      if (!updateResult.success) {
+        throw updateResult.error ?? new Error('Unable to save thawing row.');
+      }
+
+      await loadThawingLogs(false);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Unable to save thawing row.');
     } finally {
       setSavingRowId(null);
     }
@@ -745,10 +934,11 @@ function App() {
 
           <nav className="grid grid-cols-4 gap-2 md:grid-cols-1">
             {([
+              { label: 'Staff', icon: Users },
               { label: 'Cooking', icon: Flame },
               { label: 'Cooling', icon: Snowflake },
               { label: 'Reheat', icon: Undo2 },
-              { label: 'Staff', icon: Users },
+              { label: 'Thawing', icon: Droplets },
             ] as const).map(({ label, icon: Icon }) => {
               const isActive = label === activeNav;
               return (
@@ -811,6 +1001,7 @@ function App() {
                             setValue('initial', staff.Initial?.trim() || '', { shouldValidate: true });
                             setCoolingValue('initial', staff.Initial?.trim() || '', { shouldValidate: true });
                             setReheatValue('initial', staff.Initial?.trim() || '', { shouldValidate: true });
+                            setThawingValue('initial', staff.Initial?.trim() || '', { shouldValidate: true });
                           }}
                           className="h-4 w-4 rounded border-slate-300 accent-slate-700"
                         />
@@ -1265,6 +1456,315 @@ function App() {
                 </div>
               </motion.form>
             </>
+          ) : activeNav === 'Thawing' ? (
+            <>
+              <div className="rounded-2xl border border-slate-200 bg-slate-200/70 p-4 shadow-sm backdrop-blur-xl sm:p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-base font-semibold tracking-tight text-slate-900 sm:text-lg">Thawing Log Gallery</h2>
+                  <span className="rounded-full border border-slate-300 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                    {thawingLogs.length} Open
+                  </span>
+                </div>
+
+                {isLoading ? (
+                  <div className="rounded-xl border border-slate-200 bg-slate-100 p-4 text-sm">Loading logs…</div>
+                ) : thawingLogs.length === 0 ? (
+                  <div className="rounded-xl border border-slate-200 bg-slate-100 p-4 text-sm">No open thawing items</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <div className="grid gap-1">
+                      <div className={`${thawingGalleryColumnsClass} px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600`}>
+                        <span>Product</span>
+                        <span>Date</span>
+                        <span>Start Time</span>
+                        <span>Start Temp</span>
+                        <span>End Date</span>
+                        <span>End Time</span>
+                        <span>End Temp</span>
+                        <span>Approved</span>
+                        <span>Corrective Action</span>
+                        <span className="pr-1">Complete</span>
+                        <span className="pl-1">Save</span>
+                      </div>
+
+                      {thawingLogs.map((log, index) => {
+                        const itemKey = log.ID ?? `${log.Title}-${index}`;
+                        const rowId = log.ID;
+                        const draft = typeof rowId === 'number'
+                          ? (thawingRowDrafts[rowId] ?? {
+                              endDate: log.EndDate ?? '',
+                              endTime: log.EndTime ?? '',
+                              endTemp: log.EndTemp ?? '',
+                              approvedSafe: log.ApprovedSafe?.Value ?? 'No',
+                              correctiveAction: log.Correctiveaction ?? '',
+                              completed: log.Completed?.Value ?? 'No',
+                            })
+                          : {
+                              endDate: log.EndDate ?? '',
+                              endTime: log.EndTime ?? '',
+                              endTemp: log.EndTemp ?? '',
+                              approvedSafe: log.ApprovedSafe?.Value ?? 'No',
+                              correctiveAction: log.Correctiveaction ?? '',
+                              completed: log.Completed?.Value ?? 'No',
+                            };
+                        const rowSaving = typeof rowId === 'number' && savingRowId === rowId;
+
+                        return (
+                          <motion.article
+                            key={itemKey}
+                            variants={cardMotion}
+                            initial="hidden"
+                            animate="visible"
+                            transition={{ duration: 0.35, delay: index * 0.06 }}
+                            className="px-1 py-1"
+                          >
+                            <div className={`${thawingGalleryColumnsClass} text-xs text-slate-700`}>
+                              <span className="truncate font-bold text-slate-900">{log.Title || 'Untitled'}</span>
+                              <span className="truncate">{log.Date || '—'}</span>
+                              <span className="truncate">{log.StartTime || '—'}</span>
+                              <span className="truncate">{log.StartTemp ? `${log.StartTemp}°` : '—'}</span>
+
+                              <input
+                                type="date"
+                                value={draft.endDate}
+                                disabled={rowSaving}
+                                onFocus={() => {
+                                  if (typeof rowId === 'number' && !hasValue(draft.endDate)) {
+                                    updateThawingRowDraft(rowId, 'endDate', toDateInputValue(new Date()));
+                                  }
+                                }}
+                                onChange={(e) => {
+                                  if (typeof rowId === 'number') {
+                                    updateThawingRowDraft(rowId, 'endDate', e.target.value);
+                                  }
+                                }}
+                                className="h-7 rounded-md border border-slate-300 bg-white px-1.5 text-xs text-slate-900 disabled:bg-slate-100 disabled:text-slate-600"
+                              />
+
+                              <input
+                                type="text"
+                                value={draft.endTime}
+                                disabled={rowSaving}
+                                onFocus={() => {
+                                  if (typeof rowId === 'number' && !hasValue(draft.endTime)) {
+                                    updateThawingRowDraft(rowId, 'endTime', getCurrentTimeAmPm());
+                                  }
+                                }}
+                                onChange={(e) => {
+                                  if (typeof rowId === 'number') {
+                                    updateThawingRowDraft(rowId, 'endTime', e.target.value);
+                                  }
+                                }}
+                                onBlur={(e) => {
+                                  if (typeof rowId === 'number') {
+                                    updateThawingRowDraft(rowId, 'endTime', normalizeTimeAmPm(e.target.value));
+                                  }
+                                }}
+                                className="h-7 rounded-md border border-slate-300 bg-white px-1.5 text-xs text-slate-900 disabled:bg-slate-100 disabled:text-slate-600"
+                                placeholder="h:mm AM/PM"
+                              />
+
+                              <input
+                                value={draft.endTemp}
+                                disabled={rowSaving}
+                                onChange={(e) => {
+                                  if (typeof rowId === 'number') {
+                                    updateThawingRowDraft(rowId, 'endTemp', e.target.value.replace(/[^0-9.-]/g, ''));
+                                  }
+                                }}
+                                className="h-7 rounded-md border border-slate-300 bg-white px-1.5 text-xs text-slate-900 disabled:bg-slate-100 disabled:text-slate-600"
+                                placeholder="Temp"
+                                inputMode="decimal"
+                              />
+
+                              <select
+                                value={draft.approvedSafe}
+                                disabled={rowSaving}
+                                onChange={(e) => {
+                                  if (typeof rowId === 'number') {
+                                    updateThawingRowDraft(rowId, 'approvedSafe', e.target.value);
+                                  }
+                                }}
+                                className="h-7 rounded-md border border-slate-300 bg-white px-1 text-xs text-slate-900 disabled:bg-slate-100"
+                              >
+                                <option value="No">No</option>
+                                <option value="Yes">Yes</option>
+                              </select>
+
+                              <input
+                                value={draft.correctiveAction}
+                                disabled={rowSaving}
+                                onChange={(e) => {
+                                  if (typeof rowId === 'number') {
+                                    updateThawingRowDraft(rowId, 'correctiveAction', e.target.value);
+                                  }
+                                }}
+                                className="h-7 rounded-md border border-slate-300 bg-white px-1.5 text-xs text-slate-900 disabled:bg-slate-100 disabled:text-slate-600"
+                                placeholder="Notes"
+                              />
+
+                              <select
+                                value={draft.completed}
+                                disabled={rowSaving}
+                                onChange={(e) => {
+                                  if (typeof rowId === 'number') {
+                                    updateThawingRowDraft(rowId, 'completed', e.target.value);
+                                  }
+                                }}
+                                className="h-7 rounded-md border border-slate-300 bg-white px-1 text-xs text-slate-900 disabled:bg-slate-100"
+                              >
+                                <option value="No">No</option>
+                                <option value="Yes">Yes</option>
+                              </select>
+
+                              <button
+                                type="button"
+                                disabled={rowSaving || typeof rowId !== 'number'}
+                                onClick={() => void saveThawingRow(log)}
+                                title={rowSaving ? 'Saving...' : 'Save'}
+                                className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-700 bg-slate-700 text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-transparent disabled:text-slate-500"
+                              >
+                                {rowSaving ? (
+                                  <Clock3 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Save className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          </motion.article>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <motion.form
+                onSubmit={handleSubmitThawing(onSubmitThawing)}
+                className="rounded-2xl border border-slate-200 bg-slate-200/70 p-4 shadow-sm backdrop-blur-xl sm:p-5"
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.1 }}
+              >
+                <h2 className="mb-4 text-base font-semibold tracking-tight text-slate-900 sm:text-lg">Thawing Log Form</h2>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <label className="text-xs font-medium text-slate-700">
+                    Product
+                    <select
+                      {...registerThawing('product', {
+                        required: 'Product is required',
+                        validate: (value) => value.trim().length > 0 || 'Product is required',
+                        onChange: () => clearThawingErrors('product'),
+                      })}
+                      disabled={isProductsLoading || products.length === 0}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                    >
+                      <option value="">
+                        {isProductsLoading ? 'Loading products...' : products.length === 0 ? 'No products found' : 'Select product'}
+                      </option>
+                      {products.map((productName) => (
+                        <option key={productName} value={productName}>
+                          {productName}
+                        </option>
+                      ))}
+                    </select>
+                    {thawingErrors.product && <span className="mt-1 block text-[11px] text-red-300">{thawingErrors.product.message}</span>}
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700">
+                    Date
+                    <input
+                      type="date"
+                      {...registerThawing('date', { required: 'Date is required' })}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                    />
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700">
+                    Start Time
+                    <input
+                      type="text"
+                      {...registerThawing('startTime', {
+                        required: 'Start time is required',
+                        setValueAs: (value) => normalizeTimeAmPm(value ?? ''),
+                      })}
+                      onFocus={(e) => {
+                        if (!e.target.value.trim()) {
+                          setThawingValue('startTime', getCurrentTimeAmPm(), { shouldDirty: true });
+                        }
+                      }}
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                      placeholder="h:mm AM/PM"
+                    />
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700">
+                    Start Temp
+                    <div className="relative mt-1">
+                      <Thermometer className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+                      <input
+                        {...registerThawing('startTemp', { required: 'Start temp is required' })}
+                        className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-8 pr-3 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                        placeholder="-2"
+                        inputMode="decimal"
+                      />
+                    </div>
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700">
+                    End Date
+                    <input
+                      type="date"
+                      readOnly
+                      value=""
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-500 outline-none"
+                    />
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700">
+                    End Time
+                    <input
+                      type="text"
+                      readOnly
+                      value=""
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-500 outline-none"
+                    />
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700">
+                    End Temp
+                    <input
+                      readOnly
+                      value=""
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-500 outline-none"
+                    />
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700">
+                    Approved Safe
+                    <input
+                      readOnly
+                      value="No"
+                      className="mt-1 w-full rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-500 outline-none"
+                    />
+                  </label>
+
+                  <label className="text-xs font-medium text-slate-700">
+                    Initial
+                    <div className="relative mt-1">
+                      <UserRound className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+                      <input
+                        {...registerThawing('initial', { required: 'Initial is required', maxLength: 4 })}
+                        readOnly
+                        className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-8 pr-3 text-sm uppercase text-slate-900 outline-none transition focus:border-slate-500"
+                        placeholder="Select staff"
+                      />
+                    </div>
+                  </label>
+                </div>
+              </motion.form>
+            </>
           ) : (
             <>
           <div className="rounded-2xl border border-slate-200 bg-slate-200/70 p-4 shadow-sm backdrop-blur-xl sm:p-5">
@@ -1425,6 +1925,8 @@ function App() {
               ? 'Cooling summary ready for COOLING LOGS submission.'
               : activeNav === 'Reheat'
               ? 'Reheat summary ready for REHEAT LOGS submission.'
+              : activeNav === 'Thawing'
+              ? 'Thawing summary ready for THAWING LOGS submission.'
               : 'Cooking summary ready for COOK LOGS submission.'}
           </span>
           <motion.button
@@ -1434,16 +1936,25 @@ function App() {
                 ? handleSubmitCooling(onSubmitCooling)
                 : activeNav === 'Reheat'
                 ? handleSubmitReheat(onSubmitReheat)
+                : activeNav === 'Thawing'
+                ? handleSubmitThawing(onSubmitThawing)
                 : handleSubmit(onSubmit)
             }
             whileTap={{ scale: 0.95 }}
-            disabled={activeNav === 'Cooling' ? isCoolingSubmitting : activeNav === 'Reheat' ? isReheatSubmitting : isSubmitting}
+            disabled={
+              activeNav === 'Cooling' ? isCoolingSubmitting
+              : activeNav === 'Reheat' ? isReheatSubmitting
+              : activeNav === 'Thawing' ? isThawingSubmitting
+              : isSubmitting
+            }
             className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-700 px-5 text-sm font-semibold leading-none text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {activeNav === 'Cooling'
               ? (isCoolingSubmitting ? 'Submitting...' : 'Submit')
               : activeNav === 'Reheat'
               ? (isReheatSubmitting ? 'Submitting...' : 'Submit')
+              : activeNav === 'Thawing'
+              ? (isThawingSubmitting ? 'Submitting...' : 'Submit')
               : (isSubmitting ? 'Submitting...' : 'Submit')}
           </motion.button>
         </div>

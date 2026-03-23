@@ -18,7 +18,8 @@
         "products",
         "staff",
         "coolinglogs",
-        "reheatlogs"
+        "reheatlogs",
+        "thawinglogs"
       ],
       "dataSets": {
         "https://smokinbuttsandracks.sharepoint.com/sites/FoodSafety": {
@@ -37,6 +38,9 @@
             },
             "reheatlogs": {
               "tableName": "REHEAT LOGS"
+            },
+            "thawinglogs": {
+              "tableName": "THAWING LOGS"
             }
           }
         }

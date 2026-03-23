@@ -10,6 +10,7 @@ export * as COOLINGLOGSModel from './models/COOLINGLOGSModel';
 export * as ProductsModel from './models/ProductsModel';
 export * as REHEATLOGSModel from './models/REHEATLOGSModel';
 export * as StaffModel from './models/StaffModel';
+export * as THAWINGLOGSModel from './models/THAWINGLOGSModel';
 
 // Services
 export * from './services/COOKLOGSService';
@@ -17,3 +18,4 @@ export * from './services/COOLINGLOGSService';
 export * from './services/ProductsService';
 export * from './services/REHEATLOGSService';
 export * from './services/StaffService';
+export * from './services/THAWINGLOGSService';
