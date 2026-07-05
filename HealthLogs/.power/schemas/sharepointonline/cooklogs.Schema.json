@@ -100,15 +100,19 @@
         "Date": {
           "title": "Date",
           "type": "string",
+          "format": "date",
           "x-ms-permission": "read-write",
           "x-ms-sort": "asc,desc",
           "x-ms-capabilities": {
             "filterFunctions": [
               "eq",
-              "startswith"
+              "gt",
+              "ge",
+              "lt",
+              "le",
+              "ne"
             ]
-          },
-          "maxLength": 255
+          }
         },
         "StartTime": {
           "title": "Start Time",
@@ -138,16 +142,22 @@
         },
         "Temp": {
           "title": "Temp",
-          "type": "string",
+          "type": "number",
+          "format": "double",
           "x-ms-permission": "read-write",
           "x-ms-sort": "asc,desc",
           "x-ms-capabilities": {
             "filterFunctions": [
               "eq",
-              "startswith"
+              "gt",
+              "ge",
+              "lt",
+              "le",
+              "ne"
             ]
           },
-          "maxLength": 255
+          "maximum": 1.7976931348623157e+308,
+          "minimum": -1.7976931348623157e+308
         },
         "Correctiveaction": {
           "title": "Corrective action",
@@ -756,5 +766,6 @@
       }
     }
   },
-  "webUrl": "https://smokinbuttsandracks.sharepoint.com/sites/FoodSafety/Lists/COOK LOGS/AllItems.aspx"
+  "webUrl": "https://smokinbuttsandracks.sharepoint.com/sites/FoodSafety/Lists/COOK LOGS/AllItems.aspx",
+  "x-ms-connection-version": ""
 }

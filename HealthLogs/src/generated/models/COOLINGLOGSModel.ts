@@ -28,11 +28,11 @@ export interface COOLINGLOGSBase {
   Title?: string;
   Date?: string;
   StartTime?: string;
-  StartTemp?: string;
+  StartTemp?: number;
   OData__x0032_HTime?: string;
-  OData__x0032_HTemp?: string;
+  OData__x0032_HTemp?: number;
   OData__x0034_HTime?: string;
-  OData__x0034_HTemp?: string;
+  OData__x0034_HTemp?: number;
   Initial?: string;
   OData__ColorTag?: string;
   ComplianceAssetId?: string;

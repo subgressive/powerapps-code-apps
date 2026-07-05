@@ -13,7 +13,7 @@ import { getClient } from '@microsoft/power-apps/data';
 export class COOLINGLOGSService {
   private static readonly dataSourceName = 'coolinglogs';
 
-  private static readonly client = getClient(dataSourcesInfo as never);
+  private static readonly client = getClient(dataSourcesInfo);
 
   public static async create(record: Omit<COOLINGLOGSWrite, 'ID'>): Promise<IOperationResult<COOLINGLOGSRead>> {
     const result = await COOLINGLOGSService.client.createRecordAsync<Omit<COOLINGLOGSWrite, 'ID'>, COOLINGLOGSRead>(
@@ -26,7 +26,7 @@ export class COOLINGLOGSService {
   public static async update(id: string, changedFields: Partial<Omit<COOLINGLOGSWrite, 'ID'>>): Promise<IOperationResult<COOLINGLOGSRead>> {
     const result = await COOLINGLOGSService.client.updateRecordAsync<Partial<Omit<COOLINGLOGSWrite, 'ID'>>, COOLINGLOGSRead>(
       COOLINGLOGSService.dataSourceName,
-      id.toString(),
+      id,
       changedFields
     );
     return result;
@@ -35,13 +35,13 @@ export class COOLINGLOGSService {
   public static async delete(id: string): Promise<void> {
     await COOLINGLOGSService.client.deleteRecordAsync(
       COOLINGLOGSService.dataSourceName,
-      id.toString());
+      id);
   }
 
   public static async get(id: string, options?: IGetOptions): Promise<IOperationResult<COOLINGLOGSRead>> {
     const result = await COOLINGLOGSService.client.retrieveRecordAsync<COOLINGLOGSRead>(
       COOLINGLOGSService.dataSourceName,
-      id.toString(),
+      id,
       options
     );
     return result;

@@ -5610,6 +5610,7 @@ export const dataSourcesInfo = {
       "OnTableUpdatedHook": {
         "path": "/ontableupdatedhook",
         "method": "POST",
+        "parameters": [],
         "responseInfo": {
           "200": {
             "type": "string"

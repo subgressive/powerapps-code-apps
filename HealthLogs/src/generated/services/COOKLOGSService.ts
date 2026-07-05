@@ -13,7 +13,7 @@ import { getClient } from '@microsoft/power-apps/data';
 export class COOKLOGSService {
   private static readonly dataSourceName = 'cooklogs';
 
-  private static readonly client = getClient(dataSourcesInfo as never);
+  private static readonly client = getClient(dataSourcesInfo);
 
   public static async create(record: Omit<COOKLOGSWrite, 'ID'>): Promise<IOperationResult<COOKLOGSRead>> {
     const result = await COOKLOGSService.client.createRecordAsync<Omit<COOKLOGSWrite, 'ID'>, COOKLOGSRead>(
@@ -26,7 +26,7 @@ export class COOKLOGSService {
   public static async update(id: string, changedFields: Partial<Omit<COOKLOGSWrite, 'ID'>>): Promise<IOperationResult<COOKLOGSRead>> {
     const result = await COOKLOGSService.client.updateRecordAsync<Partial<Omit<COOKLOGSWrite, 'ID'>>, COOKLOGSRead>(
       COOKLOGSService.dataSourceName,
-      id.toString(),
+      id,
       changedFields
     );
     return result;
@@ -35,13 +35,13 @@ export class COOKLOGSService {
   public static async delete(id: string): Promise<void> {
     await COOKLOGSService.client.deleteRecordAsync(
       COOKLOGSService.dataSourceName,
-      id.toString());
+      id);
   }
 
   public static async get(id: string, options?: IGetOptions): Promise<IOperationResult<COOKLOGSRead>> {
     const result = await COOKLOGSService.client.retrieveRecordAsync<COOKLOGSRead>(
       COOKLOGSService.dataSourceName,
-      id.toString(),
+      id,
       options
     );
     return result;

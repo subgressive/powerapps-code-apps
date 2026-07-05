@@ -29,7 +29,7 @@ export interface COOKLOGSBase {
   Date?: string;
   StartTime?: string;
   EndTime?: string;
-  Temp?: string;
+  Temp?: number;
   Correctiveaction?: string;
   Initial?: string;
   OData__ColorTag?: string;

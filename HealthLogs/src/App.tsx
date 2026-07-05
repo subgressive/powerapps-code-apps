@@ -5,6 +5,7 @@ import {
   Clock3,
   Flame,
   Lock,
+  Settings,
   Save,
   Snowflake,
   Users,
@@ -26,7 +27,8 @@ import { ProductsService } from './generated/services/ProductsService';
 import type { StaffRead } from './generated/models/StaffModel';
 import { StaffService } from './generated/services/StaffService';
 
-type NavItem = 'Cooking' | 'Cooling' | 'Reheat' | 'Thawing' | 'Staff';
+type NavItem = 'Cooking' | 'Cooling' | 'Reheat' | 'Thawing' | 'Staff' | 'Admin';
+type AdminSubScreen = 'admin cooking' | 'admin cooling' | 'admin reheat' | 'admin thawing';
 
 interface CookingFormValues {
   product: string;
@@ -148,6 +150,17 @@ function getCurrentTimeAmPm(): string {
   return formatToAmPm(now.getHours(), now.getMinutes());
 }
 
+function toIsoDateOnly(value: Date): string {
+  const localDate = new Date(value.getTime() - value.getTimezoneOffset() * 60000);
+  return localDate.toISOString().slice(0, 10);
+}
+
+function addDays(dateOnly: string, days: number): string {
+  const value = new Date(`${dateOnly}T00:00:00`);
+  value.setDate(value.getDate() + days);
+  return toIsoDateOnly(value);
+}
+
 function normalizeTimeAmPm(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -173,7 +186,11 @@ function normalizeTimeAmPm(value: string): string {
   return trimmed;
 }
 
-function hasValue(value?: string): boolean {
+function hasValue(value?: string | number): boolean {
+  if (typeof value === 'number') {
+    return Number.isFinite(value);
+  }
+
   return Boolean(value && value.trim().length > 0);
 }
 
@@ -188,9 +205,13 @@ function normalizeTemperatureInput(value: string): string {
   return String(parsed);
 }
 
-function formatTemperatureDisplay(value?: string): string {
+function formatTemperatureDisplay(value?: string | number): string {
   if (!hasValue(value)) {
     return '—';
+  }
+
+  if (typeof value === 'number') {
+    return `${value}°`;
   }
 
   const normalized = normalizeTemperatureInput(value ?? '');
@@ -252,6 +273,7 @@ function ConfettiBurst({ active }: { active: boolean }) {
 
 function App() {
   const [activeNav, setActiveNav] = useState<NavItem>('Staff');
+  const [activeAdminScreen, setActiveAdminScreen] = useState<AdminSubScreen>('admin cooking');
   const [now, setNow] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -274,6 +296,11 @@ function App() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [toastVisible, setToastVisible] = useState(false);
   const [confettiActive, setConfettiActive] = useState(false);
+  const [adminCookingStartDate, setAdminCookingStartDate] = useState(toDateInputValue(new Date()));
+  const [adminCookingEndDate, setAdminCookingEndDate] = useState(toDateInputValue(new Date()));
+  const [adminCookingMinTemp, setAdminCookingMinTemp] = useState('135');
+  const [adminCookingMaxTemp, setAdminCookingMaxTemp] = useState('165');
+  const [isAdminCookingGenerating, setIsAdminCookingGenerating] = useState(false);
 
   const {
     register,
@@ -406,9 +433,9 @@ function App() {
         if (typeof log.ID === 'number') {
           nextDrafts[log.ID] = {
             twoHourTime: log.OData__x0032_HTime ?? '',
-            twoHourTemp: log.OData__x0032_HTemp ?? '',
+            twoHourTemp: log.OData__x0032_HTemp != null ? String(log.OData__x0032_HTemp) : '',
             fourHourTime: log.OData__x0034_HTime ?? '',
-            fourHourTemp: log.OData__x0034_HTemp ?? '',
+            fourHourTemp: log.OData__x0034_HTemp != null ? String(log.OData__x0034_HTemp) : '',
           };
         }
       });
@@ -594,7 +621,7 @@ function App() {
         Date: values.date,
         StartTime: values.startTime,
         EndTime: values.endTime,
-        Temp: values.temp,
+        Temp: Number(values.temp),
         Correctiveaction: values.correctiveAction,
         Initial: selectedStaffInitial || values.initial,
       };
@@ -637,11 +664,11 @@ function App() {
         Title: values.product,
         Date: values.date,
         StartTime: normalizeTimeAmPm(values.startTime) || getCurrentTimeAmPm(),
-        StartTemp: values.startTemp,
+        StartTemp: Number(values.startTemp),
         OData__x0032_HTime: '',
-        OData__x0032_HTemp: '',
+        OData__x0032_HTemp: undefined,
         OData__x0034_HTime: '',
-        OData__x0034_HTemp: '',
+        OData__x0034_HTemp: undefined,
         Initial: selectedStaffInitial || values.initial,
       };
 
@@ -803,7 +830,7 @@ function App() {
 
         const updateResult = await COOLINGLOGSService.update(log.ID.toString(), {
           OData__x0032_HTime: normalizedTwoHourTime,
-          OData__x0032_HTemp: normalizedTwoHourTemp,
+          OData__x0032_HTemp: Number(normalizedTwoHourTemp),
         });
 
         if (!updateResult.success) {
@@ -828,7 +855,7 @@ function App() {
 
         const updateResult = await COOLINGLOGSService.update(log.ID.toString(), {
           OData__x0034_HTime: normalizedFourHourTime,
-          OData__x0034_HTemp: normalizedFourHourTemp,
+          OData__x0034_HTemp: Number(normalizedFourHourTemp),
         });
 
         if (!updateResult.success) {
@@ -894,6 +921,88 @@ function App() {
     }
   }
 
+  async function generateAdminCookingLogs() {
+    if (isAdminCookingGenerating) {
+      return;
+    }
+
+    const minTemp = Number(adminCookingMinTemp);
+    const maxTemp = Number(adminCookingMaxTemp);
+
+    if (!adminCookingStartDate || !adminCookingEndDate) {
+      setLoadError('Start date and end date are required.');
+      return;
+    }
+
+    if (Number.isNaN(minTemp) || Number.isNaN(maxTemp)) {
+      setLoadError('Min temp and max temp must be valid numbers.');
+      return;
+    }
+
+    if (minTemp > maxTemp) {
+      setLoadError('Min temp must be less than or equal to max temp.');
+      return;
+    }
+
+    const start = new Date(`${adminCookingStartDate}T00:00:00`);
+    const end = new Date(`${adminCookingEndDate}T00:00:00`);
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      setLoadError('Invalid date range.');
+      return;
+    }
+
+    if (start > end) {
+      setLoadError('Start date must be on or before end date.');
+      return;
+    }
+
+    if (products.length === 0) {
+      setLoadError('No products are available to generate logs.');
+      return;
+    }
+
+    const totalDays = Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+    const dateRange = Array.from({ length: totalDays }, (_, index) => addDays(adminCookingStartDate, index));
+    const fallbackInitial = (selectedStaffInitial || 'ADM').slice(0, 4).toUpperCase();
+
+    try {
+      setIsAdminCookingGenerating(true);
+      setLoadError(null);
+
+      for (const dateValue of dateRange) {
+        for (const productName of products) {
+          const temp = Math.floor(Math.random() * (maxTemp - minTemp + 1)) + minTemp;
+          const payload: Omit<COOKLOGSWrite, 'ID'> = {
+            Title: productName,
+            Date: dateValue,
+            StartTime: '08:00',
+            EndTime: '14:00',
+            Temp: temp,
+            Correctiveaction: 'Generated by admin cooking tool',
+            Initial: fallbackInitial,
+          };
+
+          const result = await COOKLOGSService.create(payload);
+          if (!result.success) {
+            throw result.error ?? new Error(`Unable to create cooking log for ${productName} on ${dateValue}.`);
+          }
+        }
+      }
+
+      setToastVisible(true);
+      setConfettiActive(true);
+      window.setTimeout(() => setToastVisible(false), 2200);
+      window.setTimeout(() => setConfettiActive(false), 1300);
+
+      await loadTodayCookingLogs();
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Unable to generate admin cooking logs.');
+    } finally {
+      setIsAdminCookingGenerating(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-700">
       <ConfettiBurst active={confettiActive} />
@@ -939,6 +1048,7 @@ function App() {
               { label: 'Cooling', icon: Snowflake },
               { label: 'Reheat', icon: Undo2 },
               { label: 'Thawing', icon: Droplets },
+              { label: 'Admin', icon: Settings },
             ] as const).map(({ label, icon: Icon }) => {
               const isActive = label === activeNav;
               return (
@@ -1011,6 +1121,118 @@ function App() {
                 </div>
               )}
             </div>
+          ) : activeNav === 'Admin' ? (
+            <>
+              <div className="rounded-2xl border border-slate-200 bg-slate-200/70 p-4 shadow-sm backdrop-blur-xl sm:p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-base font-semibold tracking-tight text-slate-900 sm:text-lg">Admin</h2>
+                  <span className="rounded-full border border-slate-300 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                    List Tools
+                  </span>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-[220px_1fr]">
+                  <div className="grid gap-2">
+                    {([
+                      'admin cooking',
+                      'admin cooling',
+                      'admin reheat',
+                      'admin thawing',
+                    ] as const).map((screen) => {
+                      const isActiveScreen = activeAdminScreen === screen;
+                      return (
+                        <button
+                          key={screen}
+                          type="button"
+                          onClick={() => setActiveAdminScreen(screen)}
+                          className={[
+                            'rounded-xl border px-3 py-2 text-left text-sm font-semibold capitalize transition',
+                            isActiveScreen
+                              ? 'border-slate-300 bg-slate-100 text-slate-900'
+                              : 'border-slate-300 bg-slate-200 text-slate-700 hover:border-slate-400 hover:text-slate-900',
+                          ].join(' ')}
+                        >
+                          {screen}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="rounded-xl border border-slate-300 bg-slate-100 p-4">
+                    {activeAdminScreen === 'admin cooking' ? (
+                      <div>
+                        <h3 className="text-sm font-semibold tracking-tight text-slate-900 sm:text-base">Admin Cooking</h3>
+                        <p className="mt-1 text-xs text-slate-700">Generate cooking log rows for every product across a date range.</p>
+
+                        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <label className="text-xs font-medium text-slate-700">
+                            Start Date
+                            <input
+                              type="date"
+                              value={adminCookingStartDate}
+                              onChange={(event) => setAdminCookingStartDate(event.target.value)}
+                              className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                            />
+                          </label>
+
+                          <label className="text-xs font-medium text-slate-700">
+                            End Date
+                            <input
+                              type="date"
+                              value={adminCookingEndDate}
+                              onChange={(event) => setAdminCookingEndDate(event.target.value)}
+                              className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                            />
+                          </label>
+
+                          <label className="text-xs font-medium text-slate-700">
+                            Min Temp
+                            <input
+                              type="number"
+                              step="1"
+                              value={adminCookingMinTemp}
+                              onChange={(event) => setAdminCookingMinTemp(event.target.value)}
+                              className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                              placeholder="135"
+                            />
+                          </label>
+
+                          <label className="text-xs font-medium text-slate-700">
+                            Max Temp
+                            <input
+                              type="number"
+                              step="1"
+                              value={adminCookingMaxTemp}
+                              onChange={(event) => setAdminCookingMaxTemp(event.target.value)}
+                              className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+                              placeholder="165"
+                            />
+                          </label>
+                        </div>
+
+                        <p className="mt-3 text-[11px] text-slate-600">
+                          Products found: {products.length}. This will create one row per product per day in range.
+                        </p>
+
+                        <button
+                          type="button"
+                          onClick={() => void generateAdminCookingLogs()}
+                          disabled={isAdminCookingGenerating || isProductsLoading}
+                          className="mt-4 inline-flex h-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-700 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-200 disabled:text-slate-600"
+                        >
+                          {isAdminCookingGenerating ? 'Generating...' : 'Generate Cooking Logs'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <h3 className="text-sm font-semibold tracking-tight text-slate-900 sm:text-base capitalize">{activeAdminScreen}</h3>
+                        <p className="mt-1 text-xs text-slate-700">Placeholder ready. I can wire this screen next.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
           ) : activeNav === 'Cooling' ? (
             <>
               <div className="rounded-2xl border border-slate-200 bg-slate-200/70 p-4 shadow-sm backdrop-blur-xl sm:p-5">
@@ -1927,36 +2149,42 @@ function App() {
               ? 'Reheat summary ready for REHEAT LOGS submission.'
               : activeNav === 'Thawing'
               ? 'Thawing summary ready for THAWING LOGS submission.'
+              : activeNav === 'Admin'
+              ? 'Admin tools panel.'
+              : activeNav === 'Staff'
+              ? 'Select active staff initials for log submission.'
               : 'Cooking summary ready for COOK LOGS submission.'}
           </span>
-          <motion.button
-            type="button"
-            onClick={
-              activeNav === 'Cooling'
-                ? handleSubmitCooling(onSubmitCooling)
+          {activeNav !== 'Admin' && activeNav !== 'Staff' && (
+            <motion.button
+              type="button"
+              onClick={
+                activeNav === 'Cooling'
+                  ? handleSubmitCooling(onSubmitCooling)
+                  : activeNav === 'Reheat'
+                  ? handleSubmitReheat(onSubmitReheat)
+                  : activeNav === 'Thawing'
+                  ? handleSubmitThawing(onSubmitThawing)
+                  : handleSubmit(onSubmit)
+              }
+              whileTap={{ scale: 0.95 }}
+              disabled={
+                activeNav === 'Cooling' ? isCoolingSubmitting
+                : activeNav === 'Reheat' ? isReheatSubmitting
+                : activeNav === 'Thawing' ? isThawingSubmitting
+                : isSubmitting
+              }
+              className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-700 px-5 text-sm font-semibold leading-none text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {activeNav === 'Cooling'
+                ? (isCoolingSubmitting ? 'Submitting...' : 'Submit')
                 : activeNav === 'Reheat'
-                ? handleSubmitReheat(onSubmitReheat)
+                ? (isReheatSubmitting ? 'Submitting...' : 'Submit')
                 : activeNav === 'Thawing'
-                ? handleSubmitThawing(onSubmitThawing)
-                : handleSubmit(onSubmit)
-            }
-            whileTap={{ scale: 0.95 }}
-            disabled={
-              activeNav === 'Cooling' ? isCoolingSubmitting
-              : activeNav === 'Reheat' ? isReheatSubmitting
-              : activeNav === 'Thawing' ? isThawingSubmitting
-              : isSubmitting
-            }
-            className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-700 px-5 text-sm font-semibold leading-none text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {activeNav === 'Cooling'
-              ? (isCoolingSubmitting ? 'Submitting...' : 'Submit')
-              : activeNav === 'Reheat'
-              ? (isReheatSubmitting ? 'Submitting...' : 'Submit')
-              : activeNav === 'Thawing'
-              ? (isThawingSubmitting ? 'Submitting...' : 'Submit')
-              : (isSubmitting ? 'Submitting...' : 'Submit')}
-          </motion.button>
+                ? (isThawingSubmitting ? 'Submitting...' : 'Submit')
+                : (isSubmitting ? 'Submitting...' : 'Submit')}
+            </motion.button>
+          )}
         </div>
       </footer>
 

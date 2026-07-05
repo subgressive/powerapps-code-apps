@@ -100,15 +100,19 @@
         "Date": {
           "title": "Date",
           "type": "string",
+          "format": "date",
           "x-ms-permission": "read-write",
           "x-ms-sort": "asc,desc",
           "x-ms-capabilities": {
             "filterFunctions": [
               "eq",
-              "startswith"
+              "gt",
+              "ge",
+              "lt",
+              "le",
+              "ne"
             ]
-          },
-          "maxLength": 255
+          }
         },
         "StartTime": {
           "title": "Start Time",
@@ -125,16 +129,22 @@
         },
         "StartTemp": {
           "title": "Start Temp",
-          "type": "string",
+          "type": "number",
+          "format": "double",
           "x-ms-permission": "read-write",
           "x-ms-sort": "asc,desc",
           "x-ms-capabilities": {
             "filterFunctions": [
               "eq",
-              "startswith"
+              "gt",
+              "ge",
+              "lt",
+              "le",
+              "ne"
             ]
           },
-          "maxLength": 255
+          "maximum": 1.7976931348623157e+308,
+          "minimum": -1.7976931348623157e+308
         },
         "OData__x0032_HTime": {
           "title": "2H Time",
@@ -151,16 +161,22 @@
         },
         "OData__x0032_HTemp": {
           "title": "2H Temp",
-          "type": "string",
+          "type": "number",
+          "format": "double",
           "x-ms-permission": "read-write",
           "x-ms-sort": "asc,desc",
           "x-ms-capabilities": {
             "filterFunctions": [
               "eq",
-              "startswith"
+              "gt",
+              "ge",
+              "lt",
+              "le",
+              "ne"
             ]
           },
-          "maxLength": 255
+          "maximum": 1.7976931348623157e+308,
+          "minimum": -1.7976931348623157e+308
         },
         "OData__x0034_HTime": {
           "title": "4H Time",
@@ -177,16 +193,22 @@
         },
         "OData__x0034_HTemp": {
           "title": "4H Temp",
-          "type": "string",
+          "type": "number",
+          "format": "double",
           "x-ms-permission": "read-write",
           "x-ms-sort": "asc,desc",
           "x-ms-capabilities": {
             "filterFunctions": [
               "eq",
-              "startswith"
+              "gt",
+              "ge",
+              "lt",
+              "le",
+              "ne"
             ]
           },
-          "maxLength": 255
+          "maximum": 1.7976931348623157e+308,
+          "minimum": -1.7976931348623157e+308
         },
         "Initial": {
           "title": "Initial",
@@ -788,5 +810,6 @@
       }
     }
   },
-  "webUrl": "https://smokinbuttsandracks.sharepoint.com/sites/FoodSafety/Lists/COOLING LOGS/AllItems.aspx"
+  "webUrl": "https://smokinbuttsandracks.sharepoint.com/sites/FoodSafety/Lists/COOLING LOGS/AllItems.aspx",
+  "x-ms-connection-version": ""
 }
